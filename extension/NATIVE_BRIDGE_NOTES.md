@@ -1,3 +1,17 @@
+# v3.7.0 player rotation, local freshness and workspace controls
+
+Local market cache eviction is explicit before native eSearchSelected (which also evicts it) and before native page requests. Rapid manual clicks are coalesced into one trailing request; requests never intentionally overlap, stale generations cannot replace current results, and partial/cancelled responses remain hidden. No bid-price jitter or raw UTAS parameter/cache manipulation was added. A fresh observable event does not prove bypass of EA server caches or indexing delays. The player-name picker is a local catalogue and is expected to return the same matching players.
+
+Native static entries/listings supply preferredPosition/position; numeric positions resolve through the live PlayerPosition enum. Missing metadata remains unavailable. Player IDs and listing Trade IDs are deduplicated separately; distinct auctions of the same player remain visible. Previously attempted Trade IDs are skipped without a second bid, including across completed sessions; uncertain purchases still block starting again.
+
+beginSession snapshots an allowlist of at most 12 player/edition/rarity targets and one immutable spend/count ledger. rotateTarget requires the same session, an allowed target key, a confirmed native player/rarity snapshot, native price agreement and a same-edition/platform fresh quote where configured. It changes target constraints without resetting spent or buys. Filters are restored using native option IDs; stale suggestion tokens are refreshed with exact ID matching, never name-only substitution. Stop invalidates pending selection work and queued manual scans.
+
+Panel ordering moves existing nodes and persists only known panel keys. Player suggestions collapse after selection; saved targets stay visible. Results never enter full-page mode automatically. The activity rotor uses compositor CSS animation with run/stop state in addition to monotonic display calculations, so it does not depend on SVG progress sampling. Confirmed receipts and missed responses produce bounded transient toasts and optional Web Audio tones after user gesture; no notification permission, remote audio or external messaging is used.
+
+Futbin 400 handling can retry the base-player + exact resource-ID query on the same provider route with IDs already confirmed by EA. The parser still requires the exact edition key and requested platform, including known LCPrice/lcPrice/LCPriceMin fields. HTTP 403/429 is not retried through another format. Provider status/format errors are exported without URLs containing price-access signatures. The live route still could not be validated under the restricted environment network policy, and fixture tests do not establish provider availability or live EA trading.
+
+---
+
 # v3.6.0 fresh scans, native pagination, provider references and destinations
 
 The uploaded v3.5 log contains repeated “Native search controller is not current” errors and a lowest-price read of a previous five-item result. The old capture/lowest buttons only read memory; they did not dispatch a search. The unified manual scan now reconnects the current filter controller, applies current prices and invokes native eSearchSelected. Native option pickers also reconnect when invoked from the results screen.

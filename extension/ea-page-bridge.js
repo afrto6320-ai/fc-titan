@@ -167,7 +167,7 @@
     if (typeof ctrl?.searchEngine?.getEntriesForString!=='function') fail('PLAYER_UNAVAILABLE','Native player search engine not ready.');
     const rows=ctrl.searchEngine.getEntriesForString(query.trim(),30);
     if (!Array.isArray(rows)) fail('UNSUPPORTED','Native player search interface changed.');
-    return rows.slice(0,30);
+    return [...new Map(rows.slice(0,30).filter(p=>Number.isSafeInteger(Number(p.id))&&Number(p.id)>0).map(p=>[Number(p.id),p])).values()];
   }
   function players(query) {
     const rows=lookup(query),token='players-'+(++sequence);
@@ -175,7 +175,7 @@
     return {ok:true,items:rows.map(p=>{
       let imageUrl='';try{imageUrl=window.CodexEAOptions.assetUrl(window.AssetLocationUtils?.getPortraitImageUri?.(p.id),location.href);}catch{}
       return {key:'ea-player-'+p.id,source:'ea-native',nativeToken:token,searchQuery:query,playerId:Number(p.id),itemId:null,
-        name:name(p),rating:number(p.rating),position:'',rarity:'EA base player',imageUrl,imageSource:imageUrl?'ea-portrait':'unavailable'};
+        name:name(p),rating:number(p.rating),position:position(p),rarity:'EA base player',imageUrl,imageSource:imageUrl?'ea-portrait':'unavailable'};
     })};
   }
   function selectPlayer(args) {
@@ -230,9 +230,14 @@
     }
     return {ok:true,snapshot:readFilters()};
   }
+  function position(item){
+    const data=item?.getStaticData?.(),raw=item?.preferredPosition??item?.position??data?.preferredPosition??data?.position;
+    const label=typeof raw==='string'?raw.toUpperCase():window.PlayerPosition?.[raw];
+    return typeof label==='string'&&/^(GK|SW|RWB|RB|CB|LB|LWB|CDM|CM|CAM|RM|LM|RW|LW|CF|ST)$/.test(label)?label:'';
+  }
   function itemSummary(item) {
     const s=item.getStaticData?.(), auction=item.getAuctionData?.();
-    return {name:name(s),rating:number(item.rating),instanceId:text(String(item.id||'')),itemId:number(item.definitionId),playerId:number(item.databaseId),
+    return {name:name(s),position:position(item),rating:number(item.rating),instanceId:text(String(item.id||'')),itemId:number(item.definitionId),playerId:number(item.databaseId),
       image:text(window.AssetLocationUtils?.getPortraitImageUri?.(item.databaseId)||''),rarityId:number(item.rareflag),price:number(auction?.buyNowPrice),marketAverage:number(item.getMarketAverage?.()),tradeId:text(String(auction?.tradeId||''))};
   }
   async function search(args) {
@@ -244,6 +249,7 @@
     if (args.playerId && (snapshot.player?.id!==args.playerId||snapshot.maskedDefId!==args.playerId))fail('PLAYER_MISMATCH','Native player selection changed.');
     if(typeof c.eSearchSelected!=='function'||typeof window.services?.Item?.clearTransferMarketCache!=='function')fail('UNSUPPORTED','Native fresh-search interface changed.');
     batch=null;
+    window.services.Item.clearTransferMarketCache(); // Explicit local eviction, including between rapid manual requests.
     // Native eSearchSelected clears EA's local transfer-market cache before requesting page 1.
     c.eSearchSelected();
     const top=gate().controller,results=resultController(top);
@@ -252,7 +258,7 @@
     if(!Number.isSafeInteger(pageSize)||pageSize<1||pageSize>100)fail('UNSUPPORTED','EA pagination size is unavailable.');
     return new Promise((resolve,reject)=>{
       const observer={},generation=++sequence,found=new Map(),itemTimes=new Map(),startedAt=Date.now();
-      let timer,poll,nextTimer,done=false,page=1,pages=0,ended=false;
+      let timer,poll,nextTimer,done=false,page=1,pages=0,ended=false,rawRows=0;
       const finish=(error)=>{
         if(done)return;done=true;clearTimeout(timer);clearTimeout(nextTimer);clearInterval(poll);results.onDataChange.unobserve(observer);activeSearch=null;
         if(error){batch=null;reject(error);return;}
@@ -263,7 +269,7 @@
           lastFingerprint={criteriaKey:snapshot.criteriaKey,value:fingerprint};
           batch={id:generation,top,at:receivedAt,itemTimes,criteriaKey:snapshot.criteriaKey,items:new Map(items.map(item=>[String(item.getAuctionData().tradeId),item]))};
           resolve({ok:true,searchId:generation,items:summaries,count:items.length,requested:limit,pages,pageSize,endOfList:ended,
-            startedAt,receivedAt,localCacheCleared:true,freshEvent:true,identicalToPrevious:identical});
+            startedAt,receivedAt,localCacheCleared:true,freshEvent:true,identicalToPrevious:identical,filtersUnchanged:true,duplicateTradesRemoved:Math.max(0,rawRows-found.size)});
         }catch(e){batch=null;reject(Object.assign(new Error('EA result item format changed.'),{code:'UNSUPPORTED'}));}
       };
       const armTimeout=()=>{clearTimeout(timer);timer=setTimeout(()=>finish(Object.assign(new Error('No confirmed fresh EA result event.'),{code:'SEARCH_TIMEOUT'})),10000);};
@@ -274,6 +280,7 @@
           if(!Array.isArray(data?.items))fail('UNSUPPORTED','EA result event changed.');
           pages++;const before=found.size;
           // EA overfetches one sentinel row: it belongs to the next page, not this one.
+          rawRows+=data.items.slice(0,pageSize).length;
           for(const item of data.items.slice(0,pageSize)){
             const id=String(item.getAuctionData?.()?.tradeId||'');if(!id)fail('UNSUPPORTED','EA listing lacks a Trade ID.');found.set(id,item);itemTimes.set(id,Date.now());
           }
@@ -281,7 +288,7 @@
           if(ended||found.size>=limit){finish();return;}
           if(typeof results._requestItems!=='function')fail('UNSUPPORTED','EA native pagination is unavailable.');
           // Defer until EA finishes updating its own page model after onDataChange.
-          clearTimeout(timer);nextTimer=setTimeout(()=>{try{gate();if(context().controller!==top)fail('VIEW_CHANGED','EA results changed.');page++;armTimeout();results._requestItems(page);}catch(e){finish(e);}},0);
+          clearTimeout(timer);nextTimer=setTimeout(()=>{try{gate();if(context().controller!==top)fail('VIEW_CHANGED','EA results changed.');page++;window.services.Item.clearTransferMarketCache();armTimeout();results._requestItems(page);}catch(e){finish(e);}},0);
         }catch(e){finish(e);}
       });
       armTimeout();poll=setInterval(()=>{try{gate();if(context().nav!==ctx.nav||context().controller!==top)fail('VIEW_CHANGED','EA view changed during search.');}catch(e){finish(e);}},200);
@@ -327,11 +334,24 @@
     if(args.maxSpend<args.maxPrice)fail('BAD_ARGUMENT','Session budget is below maximum price.');
     if(args.itemId&&(!Number.isSafeInteger(Number(args.itemId))||Number(args.itemId)<0||Number(args.itemId)>0xffffffff))fail('BAD_ARGUMENT','Invalid card definition ID.');
     if(args.referenceQuote&&(!validQuote(args.referenceQuote,args.itemId)||args.referenceQuote.price!==args.referencePrice))fail('QUOTE_STALE','A fresh quote for the exact edition and platform is required.');
+    const targets=Array.isArray(args.targets)?args.targets:[];
+    if(targets.length>12||targets.some(t=>typeof t.key!=='string'||t.key.length>100||!Number.isSafeInteger(t.playerId)||t.playerId<=0||t.playerId>0xffffff||t.itemId&&(!Number.isSafeInteger(t.itemId)||t.itemId<=0||t.itemId>0xffffffff)||!Array.isArray(t.rarities)||t.rarities.length>20||t.rarities.some(x=>!Number.isSafeInteger(x)||x<0)))fail('BAD_ARGUMENT','Invalid session target list.');
+    if(new Set(targets.map(t=>t.key)).size!==targets.length)fail('BAD_ARGUMENT','Duplicate session target keys.');
     session={id:'session-'+(++sequence),criteriaKey:snap.criteriaKey,playerId:snap.player?.id||null,
       definitionId:args.itemId?Number(args.itemId):null,rarities:[...snap.rarities],minRating:Number(args.minRating)||0,maxRating:Number(args.maxRating)||0,
       hardMaxPrice:Number.isSafeInteger(args.hardMaxPrice)&&args.hardMaxPrice>=args.maxPrice&&args.hardMaxPrice<=15000000?args.hardMaxPrice:args.maxPrice,maxPrice:args.maxPrice,maxSpend:args.maxSpend,maxBuys:args.maxBuys,autoBuy:args.autoBuy===true,
-      postPurchase:['club','transfer'].includes(args.postPurchase)?args.postPurchase:'leave',referenceQuote:args.referenceQuote||null,referencePrice:Number(args.referencePrice)>0?Number(args.referencePrice):null,threshold:10,spent:0,buys:0,cancelled:false,uncertain:false};
+      allowedTargets:new Map(targets.map(t=>[t.key,{...t,rarities:[...t.rarities]}])),priceProvider:args.referenceQuote?.provider||null,pricePlatform:args.referenceQuote?.platform||null,postPurchase:['club','transfer'].includes(args.postPurchase)?args.postPurchase:'leave',referenceQuote:args.referenceQuote||null,referencePrice:Number(args.referencePrice)>0?Number(args.referencePrice):null,threshold:10,spent:0,buys:0,cancelled:false,uncertain:false};
     return {ok:true,sessionId:session.id};
+  }
+  function rotateTarget(args){
+    const current=session,spec=current?.allowedTargets.get(args.targetKey),snap=readFilters();
+    if(!current||current.id!==args.sessionId||current.cancelled||current.uncertain||!spec)fail('SESSION_INVALID','Target is not authorized for this session.');
+    if(args.criteriaKey!==snap.criteriaKey||snap.player?.id!==spec.playerId||snap.maskedDefId!==spec.playerId||JSON.stringify([...snap.rarities].sort())!==JSON.stringify([...spec.rarities].sort()))fail('FILTER_MISMATCH','EA has not confirmed the next target and its rarity.');
+    if(!Number.isSafeInteger(args.maxPrice)||args.maxPrice<150||args.maxPrice>current.hardMaxPrice||snap.prices.maxBin!==args.maxPrice)fail('LIMIT','Target price exceeds the session ceiling or differs from EA.');
+    if(current.priceProvider&&(!validQuote(args.quote,spec.itemId)||args.quote.provider!==current.priceProvider||args.quote.platform!==current.pricePlatform))fail('QUOTE_STALE','This target needs a fresh quote from the configured provider/platform.');
+    current.criteriaKey=snap.criteriaKey;current.playerId=spec.playerId;current.definitionId=spec.itemId||null;current.rarities=[...snap.rarities];current.maxPrice=args.maxPrice;
+    current.referenceQuote=current.priceProvider?args.quote:null;current.referencePrice=current.referenceQuote?.price||null;batch=null;
+    return {ok:true,sessionId:current.id,buys:current.buys,spent:current.spent};
   }
   async function buy(args){
     const ctx=gate(),current=session;
@@ -344,6 +364,7 @@
     if(current.playerId&&card.playerId!==current.playerId||current.definitionId&&card.itemId!==current.definitionId||current.rarities.length&&!current.rarities.includes(card.rarityId))fail('LISTING_MISMATCH','The native listing does not match the session target.');
     if((current.minRating||current.maxRating)&&!Number.isInteger(card.rating)||current.minRating&&card.rating<current.minRating||current.maxRating&&card.rating>current.maxRating)fail('LISTING_MISMATCH','Listing rating differs from session constraints.');
     if(!Number.isSafeInteger(card.price)||card.price<=0||card.price>current.maxPrice||current.spent+card.price>current.maxSpend||current.buys>=current.maxBuys)fail('LIMIT','Native purchase limit reached.');
+    if(attemptedTrades.has(card.tradeId))return {ok:true,status:'already-attempted'};
     const user=window.services.User.getUser(),coins=user?.getCurrency?.(window.GameCurrency?.COINS)?.amount;
     if(!Number.isFinite(coins)||typeof auction.canBuy!=='function'||typeof auction.getSecondsRemaining!=='function')fail('UNSUPPORTED','Native wallet or auction purchase checks are unavailable.');
     if(!auction.canBuy(coins)||auction.getSecondsRemaining()<=0)return {ok:true,status:'missed',reason:'EA reports this auction cannot be bought.'};
@@ -354,7 +375,6 @@
     const riskSource=current.referencePrice?(current.referenceQuote?.provider||'manual-resale-price'):reference?'ea-market-average':'unknown';
     const riskKey=JSON.stringify([current.id,card.tradeId,card.price,reference,10]);
     if(risk.requiresApproval&&args.approvedRiskKey!==riskKey)return {ok:true,status:'approval-required',riskKey,risk,riskSource};
-    if(attemptedTrades.has(card.tradeId))fail('DUPLICATE_ATTEMPT','A purchase was already attempted for this trade.');
     if(typeof window.UTItemActionController?.prototype?.bid!=='function')fail('UNSUPPORTED','Native EA bid action is unavailable.');
     attemptedTrades.add(card.tradeId);activePurchase={sessionId:current.id};
     try{
@@ -385,7 +405,7 @@
     finally{activePurchase=null;}
   }
   const handlers={status,connect,readFilters,options:a=>options(a.kind,a.refresh===true),choose,players:a=>players(a.query),selectPlayer,clearPlayer,
-    editions:async a=>{const snap=readFilters(),id=snap.player?.id;if(!id)fail('PLAYER_REQUIRED','Select an EA player first.');const result=await playerEditions(id,a.refresh===true);return {...result,playerId:id};},applyPrices,search,beginSession,updateQuote,buy,cancel:()=>{if(session)session.cancelled=true;activeSearch?.cancel();picker=null;return {ok:true};}};
+    editions:async a=>{const snap=readFilters(),id=snap.player?.id;if(!id)fail('PLAYER_REQUIRED','Select an EA player first.');const result=await playerEditions(id,a.refresh===true);return {...result,playerId:id};},applyPrices,search,beginSession,updateQuote,rotateTarget,buy,cancel:()=>{if(session)session.cancelled=true;activeSearch?.cancel();picker=null;return {ok:true};}};
   window.addEventListener('message',async event=>{
     const m=event.data;
     if(event.source!==window || event.origin!==location.origin || !m || m.channel!==CHANNEL || m.direction!=='request')return;

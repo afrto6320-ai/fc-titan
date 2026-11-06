@@ -1,4 +1,4 @@
-/* CODEX SNIPE v3.6.0 embedded interface; never accesses EA authentication tokens or private APIs. */
+/* CODEX SNIPE v3.7.0 embedded interface; never accesses EA authentication tokens or private APIs. */
 (() => {
   'use strict';
   if (window.__GPT_SNIPE_V3__) return;
@@ -30,12 +30,12 @@
     if(shadow){renderLogs();if($('technicalLogs'))$('technicalLogs').textContent=technicalAsText();} save();
   }
   function save(){
-    const payload={presets:state.presets,logs:state.logs.slice(0,70),cache:state.cache.slice(0,80),selected:state.selected,selectedTargets:state.selectedTargets.slice(0,12),eventTargets:state.eventTargets.slice(0,15),language:state.language,settings:readSettingsSafe()};
+    const payload={presets:state.presets,logs:state.logs.slice(0,70),cache:state.cache.slice(0,80),selected:state.selected,selectedTargets:state.selectedTargets.slice(0,12),eventTargets:state.eventTargets.slice(0,15),language:state.language,panelLayout:state.panelLayout||null,settings:readSettingsSafe()};
     try{chrome.storage.local.set({[STORAGE]:payload});}catch{}
   }
   function readSettingsSafe(){
     if(!shadow) return {};
-    return Object.fromEntries(['player','itemId','ratingMin','ratingMax','quality','position','club','league','nation','minBid','maxBid','minBin','maxBin','interval','maxSearches','maxBuys','budget','autoBuy','speedPreset','speedMin','speedMax','event','postPurchase','resultsCount','priceSource','pricePlatform','pricePercent'].map(k=>[k,$(k)?.type==='checkbox'?$(k).checked:$(k)?.value||'']));
+    return Object.fromEntries(['player','itemId','ratingMin','ratingMax','quality','position','club','league','nation','minBid','maxBid','minBin','maxBin','interval','maxSearches','maxBuys','budget','autoBuy','speedPreset','speedMin','speedMax','event','postPurchase','resultsCount','priceSource','pricePlatform','pricePercent','soundEnabled'].map(k=>[k,$(k)?.type==='checkbox'?$(k).checked:$(k)?.value||'']));
   }
   function input(id){return $(id)?.value.trim()||'';}
   function numeric(id){return Number(input(id)||0);}
@@ -43,9 +43,9 @@
   function updateNativeLabels(){for(const id of ['quality','position','nation','league','club','event']){const el=$('nativeLabel'+id.charAt(0).toUpperCase()+id.slice(1));if(el)el.textContent=input(id)||'— EA';}}
   function uiHTML(){return `
   <main id="shell" dir="${state.language==='ar'?'rtl':'ltr'}" lang="${state.language}" aria-label="CODEX SNIPE dashboard">
-    <header class="top"><div class="brand"><div class="mark" aria-hidden="true">◎</div><div><h1>CODEX <span>SNIPE</span></h1><small>ULTIMATE TEAM · EMBEDDED CONSOLE · v3.6.0</small></div></div>
+    <header class="top"><div class="brand"><div class="mark" aria-hidden="true">◎</div><div><h1>CODEX <span>SNIPE</span></h1><small>ULTIMATE TEAM · EMBEDDED CONSOLE · v3.7.0</small></div></div>
       <div class="head-actions"><label class="lang-label">${tr('language')} <select id="language"><option value="ar" ${state.language==='ar'?'selected':''}>العربية</option><option value="en" ${state.language==='en'?'selected':''}>English</option></select></label><span id="connection" class="pill warn">● EA WEB APP</span><span id="runBadge" class="pill">● STANDBY</span><button type="button" id="close" class="ghost">${tr('back')}</button></div></header>
-    <div class="intro"><div><div class="eyebrow">ADVANCED TRANSFER WORKSPACE / V3.5.0</div><h2>${tr('title')}</h2><p>${tr('subtitle')}</p></div><div class="hint">${tr('hint')}</div></div>
+    <div class="intro"><div><div class="eyebrow">TRANSFER WORKSPACE / V3.7.0</div><h2>${tr('title')}</h2><p>${tr('subtitle')}</p></div><div class="hint">${tr('hint')}</div></div>
     <div class="layout">
       <div class="column control">
         <details class="panel collapsible" open><summary class="panel-head"><h3><em>⌕</em> ${tr('players')}</h3><span class="tiny-tag">PLAYER FINDER</span></summary>
@@ -100,7 +100,7 @@
       </div>
       <div class="column right">
         <details class="panel collapsible" open><summary class="panel-head"><h3><em>▦</em> ${tr('stats')}</h3><small id="sessionLabel">SESSION INACTIVE</small></summary>
-          <div class="native-clock"><svg viewBox="0 0 200 200" class="cycle-gauge" aria-hidden="true"><circle cx="100" cy="100" r="88" class="clock-track"/><circle cx="100" cy="100" r="76" class="cycle-track"/><circle id="cycleRing" cx="100" cy="100" r="76" class="cycle-progress"/><circle id="cycleDot" cx="100" cy="24" r="5" class="cycle-dot"/></svg><div class="clock-center"><div class="timer-label">${tr('runtime')}</div><div id="time" class="timer-value">00:00:00</div><b id="cyclePhase">—</b><span id="speedValue">—</span></div><div class="clock-range"><span id="gaugeMin">2.0</span>–<span id="gaugeMax">5.0</span> sec</div></div>
+          <div class="native-clock"><div id="gaugeRotor" class="gauge-rotor" aria-hidden="true"></div><svg viewBox="0 0 200 200" class="cycle-gauge" aria-hidden="true"><circle cx="100" cy="100" r="88" class="clock-track"/><circle cx="100" cy="100" r="76" class="cycle-track"/><circle id="cycleRing" cx="100" cy="100" r="76" class="cycle-progress"/><circle id="cycleDot" cx="100" cy="24" r="5" class="cycle-dot"/></svg><div class="clock-center"><div class="timer-label">${tr('runtime')}</div><div id="time" class="timer-value">00:00:00</div><b id="cyclePhase">—</b><span id="speedValue">—</span></div><div class="clock-range"><span id="gaugeMin">2.0</span>–<span id="gaugeMax">5.0</span> sec</div></div>
           <div class="stats"><div class="metric"><span class="emoji">⌕</span><small>${tr('searches')}</small><strong id="searchCount" class="accent">0</strong></div><div class="metric"><span class="emoji">◇</span><small>${tr('matches')}</small><strong id="matchCount">0</strong></div><div class="metric"><span class="emoji">✓</span><small>${tr('bought')}</small><strong id="buyCount">0</strong></div><div class="metric"><span class="emoji">✕</span><small>${tr('misses')}</small><strong id="misses">0</strong></div></div>
           <div class="second-stats"><div class="substat"><span>${tr('spent')}</span><b id="spent">0</b></div><div class="substat"><span>${tr('status')}</span><b id="status">READY</b></div><div class="substat"><span>${tr('mode')}</span><b id="sessionMode">STANDBY</b></div></div>
           <div class="cycle-details"><span>${state.language==='ar'?'مدة الجولة المختارة':'Selected cycle'}: <b id="sampledInterval">—</b></span><span>${tr('next')}: <b id="nextDelay">—</b></span><span>${tr('actual')}: <b id="actualCycle">—</b></span></div>
@@ -116,8 +116,104 @@
         <details class="panel collapsible" id="technicalPanel"><summary class="panel-head"><h3><em>▤</em> ${tr('diagnosticlogs')}</h3><span class="tiny-tag">TECHNICAL</span></summary><div class="panel-body"><div class="action-row"><button id="copyTechnical" class="secondary" type="button">${tr('copysys')}</button><button id="exportTechnical" class="ghost" type="button">${tr('txtsys')}</button></div><pre id="technicalLogs" class="technical-logs">${tr('empty')}</pre></div></details>
         <details class="panel collapsible"><summary class="panel-head"><h3><em>ⓘ</em> ${tr('datalink')}</h3><span class="tiny-tag">STATUS</span></summary><div class="panel-body"><p class="desc">${tr('datahelp')}</p><div id="dataHealth" class="native-status">${tr('empty')}</div></div></details>
       </div>
-    </div><footer class="footer"><span>CODEX SNIPE v3.6.0 · Unofficial · Independent</span><span>SEARCH • INSPECT • MONITOR</span></footer>
+    </div><footer class="footer"><span>CODEX SNIPE v3.7.0 · Unofficial · Independent</span><span>SEARCH • INSPECT • MONITOR</span></footer>
   </main>`;}
+  function organizeWorkspace(){
+    const ar=state.language==='ar',players=$('player').closest('.panel'),filters=$('itemId').closest('.panel'),connection=$('connectEA').closest('.panel'),logs=$('logs').closest('.panel');
+    const body=players.querySelector(':scope > .panel-body'),work=document.createElement('div');work.className='selection-workbench';
+    const drawer=document.createElement('div');drawer.id='playerSearchDrawer';drawer.className='player-search-drawer';
+    drawer.append($('player').closest('label'),$('playerResults'),$('provider').closest('.mini-bar'));
+    const board=document.createElement('div');board.className='selected-board';
+    board.append(body.querySelector('.selection-head'),$('selectedTargets'));
+    const note=document.createElement('p');note.id='rotationNote';note.className='desc';board.append(note);
+    const add=document.createElement('button');add.type='button';add.id='addPlayer';add.className='secondary add-player';add.textContent=ar?'+ إضافة لاعب آخر':'+ Add another player';board.append(add);
+    const sync=$('syncPlayerEA').closest('.action-row');board.append(sync);
+    work.append(drawer,board);body.prepend(work);
+    for(const p of [...body.querySelectorAll(':scope > p.desc')])p.remove();
+    const pricing=document.createElement('section');pricing.id='priceControls';pricing.className='price-controls';
+    const priceTitle=document.createElement('h4');priceTitle.textContent=ar?'مرجع السعر وإصدار الكارت':'Price source and card edition';pricing.append(priceTitle,body.querySelector('.price-toolbar'),$('quoteBox'));
+    const priceActions=document.createElement('div');priceActions.className='provider-actions';
+    const link=document.createElement('a');link.id='providerSite';link.target='_blank';link.rel='noopener noreferrer';link.textContent=ar?'فتح موقع مصدر السعر ↗':'Open price provider ↗';link.href='https://www.futbin.com/27/players';priceActions.append(link);pricing.append(priceActions);
+    filters.querySelector(':scope > .panel-body').insertBefore(pricing,filters.querySelector(':scope > .panel-body > .action-row'));
+    filters.id='transferSection';filters.classList.add('transfer-section');filters.querySelector('h3').textContent=ar?'⚙ الترانسفير والفلاتر':'⚙ Transfer filters';body.append(filters);
+    players.querySelector(':scope > .panel-head h3').textContent=ar?'اللاعبون والترانسفير':'Players & transfer workspace';
+    logs.insertAdjacentElement('afterend',connection);
+    const header=shadow.querySelector('.head-actions'),layoutButton=document.createElement('button');layoutButton.id='editLayout';layoutButton.className='ghost';layoutButton.textContent=ar?'ترتيب اللوحات':'Arrange panels';layoutButton.type='button';header.prepend(layoutButton);
+    const reset=document.createElement('button');reset.id='resetLayout';reset.className='ghost layout-reset';reset.textContent=ar?'الترتيب الافتراضي':'Reset layout';reset.type='button';header.prepend(reset);
+    const active=document.createElement('div');active.className='active-target-strip';const label=document.createElement('span');label.textContent=ar?'اللاعب النشط':'Active player';const value=document.createElement('b');value.id='activeTargetName';value.textContent='—';active.append(label,value);$('sessionLabel').closest('.panel').querySelector('.panel-head').insertAdjacentElement('afterend',active);
+    $('toasts')?.remove();const feedback=document.createElement('div');feedback.id='toasts';feedback.className='toast-stack';feedback.setAttribute('aria-live','polite');shadow.append(feedback);
+    const sound=document.createElement('label');sound.className='checkbox sound-toggle';sound.innerHTML='<input type="checkbox" id="soundEnabled" checked><span>'+(ar?'صوت الشراء وفوات العرض':'Purchase and missed-auction sounds')+'</span>';
+    $('postPurchase').closest('.panel-body').append(sound);
+    const keys=[['players',players],['engine',$('start').closest('.panel')],['stats',$('sessionLabel').closest('.panel')],['market',$('marketPanel')],['logs',logs],['connection',connection],['compat',$('compatPanel')],['technical',$('technicalPanel')],['data',$('dataHealth').closest('.panel')]];
+    for(const [key,panel] of keys){
+      panel.dataset.panelKey=key;
+      const controls=document.createElement('div');controls.className='panel-arrange';
+      for(const [action,label] of [['up','↑'],['down','↓'],['column','↔']]){const b=document.createElement('button');b.type='button';b.className='panel-move';b.dataset.move=action;b.textContent=label;b.title=action==='column'?(ar?'نقل للعمود الآخر':'Move to other column'):action==='up'?(ar?'أعلى':'Move up'):(ar?'أسفل':'Move down');b.setAttribute('aria-label',b.title);controls.append(b);}
+      panel.querySelector(':scope > .panel-head').append(controls);
+    }
+    restorePanelLayout();
+  }
+  function panelNodes(){return new Map([...shadow.querySelectorAll('[data-panel-key]')].map(p=>[p.dataset.panelKey,p]));}
+  function capturePanelLayout(){state.panelLayout=Object.fromEntries(['control','right'].map(column=>[column,[...shadow.querySelector('.column.'+column).children].filter(p=>p.dataset.panelKey).map(p=>p.dataset.panelKey)]));}
+  function restorePanelLayout(){
+    if(!state.panelLayout)return;const panels=panelNodes(),used=new Set();
+    for(const column of ['control','right'])for(const key of Array.isArray(state.panelLayout[column])?state.panelLayout[column]:[]){if(used.has(key)||!panels.has(key))continue;used.add(key);shadow.querySelector('.column.'+column).append(panels.get(key));}
+  }
+  function bindWorkspace(){
+    $('addPlayer').addEventListener('click',()=>{if(state.running||state.starting||state.scanning)return;state.selectionCollapsed=false;$('playerSearchDrawer').hidden=false;$('player').value='';renderPlayers([],state.language==='ar'?'اكتب اسم لاعب لإضافته':'Search to add another player');$('player').focus();});
+    $('editLayout').addEventListener('click',()=>{$('shell').classList.toggle('arranging');});
+    $('resetLayout').addEventListener('click',()=>{const panels=panelNodes();for(const [col,keys] of Object.entries({control:['players','engine'],right:['stats','market','logs','connection','compat','technical','data']}))for(const key of keys)shadow.querySelector('.column.'+col).append(panels.get(key));capturePanelLayout();save();});
+    for(const b of shadow.querySelectorAll('.panel-move'))b.addEventListener('click',event=>{
+      event.preventDefault();event.stopPropagation();const panel=b.closest('[data-panel-key]'),parent=panel.parentElement;
+      if(b.dataset.move==='up'&&panel.previousElementSibling)parent.insertBefore(panel,panel.previousElementSibling);
+      if(b.dataset.move==='down'&&panel.nextElementSibling)panel.nextElementSibling.insertAdjacentElement('afterend',panel);
+      if(b.dataset.move==='column')shadow.querySelector('.column.'+(parent.classList.contains('control')?'right':'control')).append(panel);
+      capturePanelLayout();save();
+    });
+    $('soundEnabled').addEventListener('change',()=>{if($('soundEnabled').checked)unlockAudio();save();});
+  }
+  let audioContext=null;
+  function unlockAudio(){
+    if(!$('soundEnabled')?.checked)return;
+    try{const Type=window.AudioContext||window.webkitAudioContext;if(!Type)return;audioContext??=new Type();if(audioContext.state==='suspended')void audioContext.resume().catch(()=>{});}catch{}
+  }
+  function playOutcome(won){
+    if(!$('soundEnabled')?.checked||!audioContext||audioContext.state!=='running')return;
+    try{const at=audioContext.currentTime,notes=won?[523.25,659.25,783.99,1046.5]:[392,311.13,233.08];
+      notes.forEach((hz,i)=>{const osc=audioContext.createOscillator(),gain=audioContext.createGain(),start=at+i*.095;osc.type=won?'sine':'triangle';osc.frequency.value=hz;gain.gain.setValueAtTime(0,start);gain.gain.linearRampToValueAtTime(.07,start+.012);gain.gain.exponentialRampToValueAtTime(.001,start+.2);osc.connect(gain);gain.connect(audioContext.destination);osc.start(start);osc.stop(start+.22);});
+    }catch{}
+  }
+  function showOutcome(kind,item){
+    const toast=document.createElement('article');toast.className='outcome-toast '+kind;toast.dataset.tradeId=item.tradeId;
+    const icon=document.createElement('span');icon.className='outcome-icon';icon.textContent=kind==='won'?'✓':'↘';
+    const text=document.createElement('div'),title=document.createElement('b'),detail=document.createElement('p');title.textContent=kind==='won'?(state.language==='ar'?'تم اصطياد الكارت!':'Card secured!'):(state.language==='ar'?'العرض فاتك':'Auction missed');detail.textContent=(item.name||'EA')+' · '+fmt(item.price)+' Coins';text.append(title,detail);toast.append(icon,text);
+    const host=$('toasts');host.append(toast);while(host.children.length>4)host.firstElementChild.remove();playOutcome(kind==='won');setTimeout(()=>toast.remove(),4800);
+  }
+  async function activateTarget(target){
+    const switchToken=state.token,guard=()=>{if(state.token!==switchToken)throw Object.assign(Error('Target switch stopped.'),{code:'CANCELLED'});};
+    const ready=await Page.request('connect');guard();state.pageMode=true;state.pageConnection=ready;mergePageSnapshot(ready.snapshot);
+    const select=()=>Page.request('selectPlayer',{id:Number(target.playerId||target.itemId),itemId:target.itemId,source:target.source||'catalogue',nativeToken:target.nativeToken,searchQuery:target.searchQuery,query:target.name});
+    let report;
+    try{report=await select();}catch(e){
+      if(e.code!=='PLAYER_STALE')throw e;
+      const pool=await Page.request('players',{query:target.searchQuery||target.name.split(' ')[0]}),entry=pool.items.find(x=>x.playerId===Number(target.playerId));
+      if(!entry)throw Error('EA cannot refresh the exact player ID for '+target.name);
+      guard();target.nativeToken=entry.nativeToken;target.searchQuery=entry.searchQuery;report=await select();
+    }
+    guard();if(target.playerId&&target.playerId!==report.resolvedPlayerId)throw Error('EA target identity changed.');
+    target.playerId=report.resolvedPlayerId;state.selected=target;mergePageSnapshot(report.snapshot);
+    for(const kind of ['quality','event','position','nation','league','club']){
+      guard();const id=target.filterChoices?.[kind],current=state.pageSnapshot.selections?.[kind];
+      if(id==null||id===current?.id)continue;
+      if(!current?.enabled)throw Error('EA locked the saved '+kind+' filter for '+target.name);
+      const choices=await Page.request('options',{kind}),option=choices.options.find(x=>x.id===id);
+      guard();if(!option)throw Error('EA no longer supports the saved '+kind+' for '+target.name);
+      mergePageSnapshot((await Page.request('choose',{token:choices.token,index:option.index})).snapshot);
+    }
+    $('player').value=target.name;$('itemId').value=target.itemId||'';state.nativePlayerConfirmed=true;state.priceQuote=null;state.effectiveMaxPrice=null;state.lastRisk=null;
+    if($('playerSyncState'))$('playerSyncState').textContent='✓ EA player ID '+target.playerId+' · native target';
+    upsertTarget(target);renderTargets();return state.pageSnapshot;
+  }
   function createPortal(){
     if(portal?.isConnected)return;
     portal=document.createElement('div');portal.id='gpts-v3-host';portal.setAttribute('aria-label','CODEX SNIPE app');
@@ -126,7 +222,7 @@
     const link=document.createElement('link');link.rel='stylesheet';link.href=chrome.runtime.getURL('embedded.css');shadow.appendChild(link);
     const app=document.createElement('div');app.innerHTML=uiHTML();while(app.firstChild)shadow.appendChild(app.firstChild);
     document.documentElement.appendChild(portal);
-    bindUI();refresh();renderLogs();
+    organizeWorkspace();bindUI();refresh();renderLogs();
   }
   const navStyle = document.createElement('style');
   navStyle.textContent=`#gpts-v3-nav{border:0;min-height:48px;width:100%;padding:9px 10px;background:linear-gradient(125deg,#25392b,#172627);color:#d1f5ab;font-family:inherit;display:flex;gap:9px;align-items:center;justify-content:center;cursor:pointer;box-sizing:border-box;border-inline-start:3px solid #bdec7a;font-size:12px;font-weight:900;letter-spacing:.5px}#gpts-v3-nav:hover,#gpts-v3-nav.gpts-active{background:linear-gradient(120deg,#365a38,#1c352d);color:#fff}#gpts-v3-nav .gpts-icon{font-size:19px;line-height:1}#gpts-v3-nav.gpts-compact{flex-direction:column;gap:4px;padding:8px 3px;font-size:9px;min-height:63px}#gpts-v3-nav:focus-visible{outline:2px solid #c5f479;outline-offset:-2px}#gpts-v3-nav.gpts-compact .gpts-icon{font-size:21px}`;
@@ -229,6 +325,7 @@
     if(!metrics){oldPaintSpeedGauge(ms);return;}
     if($('time'))$('time').textContent=metrics.clock;
     const active=state.running||state.scanning;
+    if($('gaugeRotor'))$('gaugeRotor').style.animationPlayState=active?'running':'paused';
     const phase=active?(state.phase||'searching'):'stopped';
     const labels=state.language==='ar'?{searching:'بحث EA',buying:'شراء EA',waiting:'انتظار الجولة',stopped:'متوقف'}:{searching:'EA search',buying:'EA purchase',waiting:'Next search',stopped:'Stopped'};
     if($('cyclePhase'))$('cyclePhase').textContent=labels[phase]||phase;
@@ -254,8 +351,10 @@
     for(const [k,v] of Object.entries(show))if($(k))$(k).textContent=v;
     if($('sessionMode'))$('sessionMode').textContent=state.running?($('autoBuy')?.checked?'AUTO BUY':'ALERT ONLY'):'STANDBY';
     paintSpeedGauge(state.running?state.nextIntervalMs:0);
+    if($('addPlayer'))$('addPlayer').disabled=state.running||state.starting||state.scanning||state.editionUpdating;
+    for(const b of shadow.querySelectorAll('.target-card-select,.target-remove'))b.disabled=state.running||state.starting||state.scanning||state.editionUpdating;
     $('start').disabled=state.running||state.starting||state.scanning||state.editionUpdating;$('stop').disabled=!(state.running||state.starting||state.scanning);
-    if($('scanMarket'))$('scanMarket').disabled=state.running||state.starting||state.scanning||state.editionUpdating;
+    if($('scanMarket')){$('scanMarket').disabled=state.running||state.starting||state.editionUpdating;$('scanMarket').textContent=state.scanning?(state.scanQueued?(state.language==='ar'?'تحديث جديد في الانتظار':'Refresh queued'):(state.language==='ar'?'جارٍ الفحص — اضغط لطلب تحديث':'Scanning — click to refresh again')):(state.language==='ar'?'فحص السوق — بحث جديد':'Scan market — fresh search');}
     for(const id of ['player','itemId','postPurchase','resultsCount','priceSource','pricePlatform','priceEdition','pricePercent','loadEditions','refreshQuote','autoBuy','budget','maxBuys','maxSearches','maxBin','minBin','minBid','maxBid','ratingMin','ratingMax'])if($(id))$(id).disabled=state.running||state.starting||state.scanning||state.editionUpdating;
     for(const button of shadow.querySelectorAll('[data-native-picker]'))button.disabled=state.running||state.starting||state.scanning||state.editionUpdating;
     $('runBadge').innerHTML=state.running?'<i></i> LIVE SCANNING':'<i></i> STANDBY';$('runBadge').className='pill'+(state.running?' green':'');
@@ -268,16 +367,52 @@
   }
 
   function safeImg(x){try{const u=new URL(x);return u.protocol==='https:'&&['game-assets.fut.gg','www.fut.gg'].includes(u.hostname)?u.href:'';}catch{return '';}}
-  function renderTargets(){
-    const host=$('selectedTargets');if(!host)return;host.replaceChildren();
-    for(const target of state.selectedTargets){
-      const chip=document.createElement('span');chip.className='target-chip';
-      const name=document.createElement('span');name.textContent=target.name+' · '+(target.rating||'—')+' · '+(target.itemId||'—');
-      const remove=document.createElement('button');remove.type='button';remove.className='target-remove';remove.textContent='×';remove.title=tr('selclear');
-      remove.addEventListener('click',()=>{state.selectedTargets=state.selectedTargets.filter(x=>x.key!==target.key);renderTargets();save();});
-      chip.append(name,remove);host.appendChild(chip);
+  function targetKey(p){return p.playerId?'player-'+p.playerId:String(p.key||p.itemId||p.name);}
+  function stashActiveTarget(){
+    const selected=state.selected;if(!selected)return;
+    const target=state.selectedTargets.find(x=>x.key===selected.key);if(!target)return;
+    target.itemId=Number(input('itemId'))||null;
+    if(state.pageSnapshot?.player?.id===selected.playerId){
+      target.filterChoices=Object.fromEntries(Object.entries(state.pageSnapshot.selections||{}).map(([kind,x])=>[kind,x.id]));
+      target.rarities=[...(state.pageSnapshot.rarities||[])];
     }
-    if(!state.selectedTargets.length){const d=document.createElement('span');d.className='muted';d.textContent=tr('empty');host.appendChild(d);}
+  }
+  function upsertTarget(p){
+    const key=targetKey(p),existing=state.selectedTargets.find(x=>x.key===p.key||x.key===key||p.playerId&&x.playerId===p.playerId);
+    if(existing){Object.assign(existing,p,{key});state.selectedTargets=state.selectedTargets.filter(x=>x===existing||x.key!==key&&(!p.playerId||x.playerId!==p.playerId));return existing;}
+    const target={...p,key};state.selectedTargets.push(target);return target;
+  }
+  function renderTargets(){
+    const host=$('selectedTargets');if(!host)return;host.replaceChildren();host.dataset.count=state.selectedTargets.length;
+    const locked=state.running||state.starting||state.scanning;
+    for(const target of state.selectedTargets){
+      const active=target.key===state.selected?.key,card=document.createElement('article');card.className='target-chip selected-card'+(active?' active':'');card.dataset.playerId=target.playerId||'';
+      const choose=document.createElement('button');choose.type='button';choose.className='target-card-select';choose.disabled=locked;choose.setAttribute('aria-pressed',String(active));
+      const image=document.createElement('div');image.className='selected-portrait';
+      const url=target.source==='ea-native'?imageFromNative(target.imageUrl):safeImg(target.imageUrl);
+      if(url){const img=document.createElement('img');img.src=url;img.alt=target.name;img.loading='lazy';img.onerror=()=>img.remove();image.append(img);}
+      const rating=document.createElement('b');rating.textContent=target.rating||'—';image.append(rating);
+      const pos=document.createElement('span');pos.className='position-badge';pos.textContent=target.position||'—';image.append(pos);
+      const name=document.createElement('strong');name.textContent=target.name;
+      const meta=document.createElement('small');meta.textContent=target.itemId?'Item '+target.itemId:(state.language==='ar'?'كل الإصدارات المطابقة للفلتر':'Editions matching filters');
+      const status=document.createElement('span');status.className='target-active';status.textContent=active?(state.language==='ar'?'اللاعب النشط':'Active target'):(state.language==='ar'?'ضمن دورة البحث':'In search rotation');
+      choose.append(image,name,meta,status);choose.addEventListener('click',()=>selectPlayer(target));
+      const remove=document.createElement('button');remove.type='button';remove.className='target-remove';remove.disabled=locked;remove.textContent='×';remove.title=tr('selclear');
+      remove.addEventListener('click',async()=>{
+        if(state.running||state.starting||state.scanning)return;
+        state.selectedTargets=state.selectedTargets.filter(x=>x.key!==target.key);
+        if(active){state.selected=null;state.nativePlayerConfirmed=false;state.priceQuote=null;
+          if(state.selectedTargets.length)selectPlayer(state.selectedTargets[0]);
+          else{state.selectionCollapsed=false;$('player').value='';$('itemId').value='';if(state.pageMode)try{await Page.request('connect');mergePageSnapshot((await Page.request('clearPlayer')).snapshot);}catch(e){addLog(e.message,'warning');}}
+        }
+        renderTargets();save();
+      });
+      card.append(choose,remove);host.append(card);
+    }
+    if(!state.selectedTargets.length){const empty=document.createElement('div');empty.className='selected-empty';empty.textContent=state.language==='ar'?'اختَر لاعبًا ليظهر كارتُه هنا':'Select a player to pin their card here';host.append(empty);}
+    if($('playerSearchDrawer'))$('playerSearchDrawer').hidden=Boolean(state.selectionCollapsed&&state.selectedTargets.length);
+    if($('activeTargetName'))$('activeTargetName').textContent=state.selected?.name||'—';
+    if($('rotationNote'))$('rotationNote').textContent=state.language==='ar'?`${state.selectedTargets.length} لاعب · البحث عليهم بالتبادل · ميزانية مشتركة`:`${state.selectedTargets.length} targets · round-robin search · shared budget`;
   }
   function renderEvents(){
     const host=$('eventTargets');if(!host)return;host.replaceChildren();
@@ -299,17 +434,23 @@
   function updateDatalists(){ /* Original EA option picker now owns these categories. */ }
   function selectPlayer(p){
     if(state.running||state.starting){addLog('أوقف الجلسة قبل تغيير اللاعب.','warning');return;}
-    clearTimeout(searchTimer);state.pendingQuery++;
+    stashActiveTarget();clearTimeout(searchTimer);state.pendingQuery++;
     state.priceQuote=null;state.editions=[];if($('priceEdition'))$('priceEdition').replaceChildren(new Option('—',''));if($('quoteBox'))$('quoteBox').textContent='—';
-    state.lastRisk=null;state.selected=p;state.nativePlayerConfirmed=false;
+    if(state.selectedTargets.length>=12&&!state.selectedTargets.some(x=>x.playerId===p.playerId||x.key===p.key)){addLog('الحد الأقصى 12 لاعبًا.','warning');return;}
+    const existing=state.selectedTargets.find(x=>x.playerId&&x.playerId===p.playerId||x.key===p.key);
+    const chosen=existing?{...existing,...p,itemId:existing.itemId,filterChoices:existing.filterChoices,rarities:existing.rarities}:{...p};
+    state.lastRisk=null;state.selected=upsertTarget(chosen);state.selectionCollapsed=true;state.nativePlayerConfirmed=false;
     state.pickerRequestSeq=(state.pickerRequestSeq||0)+1;state.pickerOptions=[];
     if($('nativePickerResults'))$('nativePickerResults').replaceChildren();
     if($('pickerStatus'))$('pickerStatus').textContent=state.language==='ar'?'سيتم عرض إصدارات اللاعب المؤكد عند فتح الحدث.':'Open Events to read the confirmed player editions.';
-    const key=String(p.key||p.itemId||p.playerId||p.name);
-    state.selectedTargets=[{...p,key}];
+    const key=state.selected.key;
     $('player').value=p.name||'';
-    $('itemId').value=p.itemId?String(p.itemId):'';
-    if(state.pageMode){renderTargets();renderPlayers(state.players);refresh();save();void confirmNativePlayer();return;}
+    $('itemId').value=state.selected.itemId?String(state.selected.itemId):'';
+    if(state.pageMode){
+      renderTargets();renderPlayers(state.players);refresh();save();
+      if(state.selected.filterChoices){state.editionUpdating=true;refresh();void activateTarget(state.selected).then(()=>{stashActiveTarget();save();}).catch(e=>addLog(e.message,'error')).finally(()=>{state.editionUpdating=false;refresh();});}
+      else void confirmNativePlayer();return;
+    }
     // Catalogue metadata must never be falsely presented as a confirmed native EA filter.
     // Keep native selections already explicitly made; changing player does not silently clear EA state.
     updateNativeLabels();
@@ -334,11 +475,13 @@
     if(state.pageMode){
       const id=Number(selected.playerId||selected.itemId);
       try{
-        const report=await Page.request('selectPlayer',{id,itemId:selected.itemId,source:selected.source||'catalogue',nativeToken:selected.nativeToken,searchQuery:selected.searchQuery,query:selected.name});
+        const ready=await Page.request('connect');if(state.selected!==selected)return;mergePageSnapshot(ready.snapshot);
+        const select=()=>Page.request('selectPlayer',{id,itemId:selected.itemId,source:selected.source||'catalogue',nativeToken:selected.nativeToken,searchQuery:selected.searchQuery,query:selected.name});
+        let report;try{report=await select();}catch(e){if(e.code!=='PLAYER_STALE')throw e;const pool=await Page.request('players',{query:selected.searchQuery||selected.name.split(' ')[0]}),entry=pool.items.find(x=>x.playerId===id);if(!entry)throw Error('EA did not refresh the exact player ID.');selected.nativeToken=entry.nativeToken;selected.searchQuery=entry.searchQuery;report=await select();}
         if(state.selected!==selected)return;
         selected.playerId=report.resolvedPlayerId;selected.nativePlayerId=report.resolvedPlayerId;
-        state.selectedTargets=[{...selected}];
-        mergePageSnapshot(report.snapshot);state.nativePlayerConfirmed=true;renderTargets();save();
+        state.selected=upsertTarget(selected);
+        mergePageSnapshot(report.snapshot);state.nativePlayerConfirmed=true;stashActiveTarget();renderTargets();save();
         $('playerSyncState').textContent='✓ EA player ID '+report.resolvedPlayerId+' · '+report.resolution;
         addLog('EA confirmed native player ID: '+report.resolvedPlayerId+' · '+report.resolution,'success');
       }catch(e){addLog(e.message,'error');$('playerSyncState').textContent='EA: '+e.message;}
@@ -358,7 +501,7 @@
     state.players=list;
     const host=$('playerResults');if(!host)return;host.replaceChildren();$('cardCount').textContent=`${list.length} ${tr('cardcount')}`;
     if(notice){const d=document.createElement('div');d.className='muted';d.textContent=notice;host.appendChild(d);}
-    for(const p of list.slice(0,24)){
+    for(const p of [...new Map(list.map(p=>[p.playerId||p.itemId||p.key,p])).values()].slice(0,24)){
       const b=document.createElement('button');b.type='button';b.className='result';
       if(state.selectedTargets.some(x=>x.key===String(p.key||p.itemId||p.playerId||p.name)))b.classList.add('chosen');
       const avatar=document.createElement('span');avatar.className='avatar';avatar.textContent=String(p.name||'?').charAt(0).toUpperCase();
@@ -379,6 +522,7 @@
     }
     if(state.pageMode){
       try{
+        const ready=await Page.request('connect');if(token!==state.pendingQuery)return;mergePageSnapshot(ready.snapshot);
         const response=await Page.request('players',{query:term});if(token!==state.pendingQuery)return;
         renderPlayers(response.items,response.items.length?'EA native player database — select rarity/event separately.':'No matching native EA player.');
         state.lastProvider='EA native · '+response.items.length;
@@ -531,7 +675,7 @@
           if(result.snapshot)mergePageSnapshot(result.snapshot);
           if(!result.ok){status.textContent='EA changed the options: reopen the picker.';button.disabled=false;return;}
           const inputEl=$(kind);if(inputEl)inputEl.value=result.label;
-          state.nativeChoices[kind]=result.label;updateNativeLabels();addLog('EA selection: '+kind+' — '+result.label+' · ID '+(opt.id??'unavailable'),'success');
+          state.nativeChoices[kind]=result.label;updateNativeLabels();stashActiveTarget();addLog('EA selection: '+kind+' — '+result.label+' · ID '+(opt.id??'unavailable'),'success');
           status.textContent='✓ EA '+kind+': '+result.label;generation++;grid.replaceChildren();bar.remove();toggleLabel.remove();save();
         });destination.append(button);
         }
@@ -577,9 +721,10 @@
     if(provider==='manual'){$('quoteBox').textContent='Max Buy Now · '+fmt(numeric('maxBin'))+' Coins';return null;}
     const id=Number(input('itemId'));if(!Number.isSafeInteger(id)||id<=0)throw Error('اختر إصدار EA محددًا أو أدخل EA Item ID لنسخة الكارت أولًا.');
     const platform=input('pricePlatform');$('quoteBox').textContent=provider.toUpperCase()+' …';
-    const reply=await chrome.runtime.sendMessage({type:'CODEX_GET_PRICES',payload:{provider,platform,ids:[id],force}});
-    if(!reply?.ok)throw Error(reply?.error||'Price provider unavailable.');
-    const q=reply.result.quotes.find(x=>x.itemId===id&&x.provider===provider&&x.platform===platform);
+    const reply=await chrome.runtime.sendMessage({type:'CODEX_GET_PRICES',payload:{provider,platform,ids:[id],force,baseIds:state.selected?.playerId?{[id]:state.selected.playerId}:{}}});
+    state.lastPriceStatus={provider,platform,itemId:id,at:new Date().toISOString(),ok:reply?.ok===true,status:reply?.status||null,code:reply?.code||null};
+    if(!reply?.ok){const explanation=reply?.status===400?provider.toUpperCase()+' رفض صيغة الطلب لهذه النسخة (HTTP 400). لا يوجد سعر مؤكد.':reply?.status===403?'مصدر السعر رفض الوصول (HTTP 403). افتح موقع المصدر وراجع إتاحته.':reply?.status===429?'مصدر السعر طلب تقليل الطلبات (HTTP 429). حاول لاحقًا.':reply?.error||'Price provider unavailable.';throw Error(explanation);}
+    const q=reply.result.quotes.find(x=>x.itemId===id&&x.provider===provider&&x.platform===platform);state.lastPriceStatus.quoteAvailable=Boolean(q);
     if(!q||!Number.isSafeInteger(q.price)||q.price<=0||!Number.isFinite(q.retrievedAt)||Date.now()-q.retrievedAt<0||Date.now()-q.retrievedAt>=90000)throw Error('لا يوجد سعر حديث لنفس النسخة والمنصة من المصدر المختار.');
     if(input('priceSource')!==provider||input('pricePlatform')!==platform||Number(input('itemId'))!==id)throw Error('تغير الإصدار أو مصدر السعر أثناء الطلب؛ حدّث السعر مجددًا.');
     state.priceQuote=q;$('quoteBox').textContent=provider.toUpperCase()+' · '+platform+' · '+fmt(q.price)+' Coins · Item '+id+' · '+new Date(q.retrievedAt).toLocaleTimeString()+(state.language==='ar'?' (وقت الجلب؛ وقت تحديث المصدر غير متاح)':' (retrieved; provider update time unavailable)');
@@ -595,9 +740,11 @@
     $('quoteBox').textContent+=(state.language==='ar'?' · سقف البحث الفعلي: ':' · Effective search ceiling: ')+fmt(ceiling);
   }
   async function scanMarket(){
-    if(state.running||state.starting||state.scanning||state.editionUpdating)return;
+    unlockAudio();if(state.scanning){state.scanQueued=true;refresh();return;}
+    if(state.running||state.starting||state.editionUpdating)return;
     clearTimeout(searchTimer);state.pendingQuery++;const token=++state.token;state.scanning=true;state.cycleStart=performance.now();state.nextIntervalMs=0;phase('searching');clearMarket();
     try{
+      stashActiveTarget();if(state.selectedTargets.length>1){const target=state.selectedTargets[(state.manualTargetIndex||0)%state.selectedTargets.length];await activateTarget(target);if(token!==state.token)return;}
       await preparePrice();if(token!==state.token)return;
       if(!await connectEA()||!state.pageMode)throw Error('يلزم جسر EA MAIN للفحص الجديد.');
       if(token!==state.token)return;
@@ -608,11 +755,11 @@
       if(token!==state.token)return;
       const response=await Page.request('search',{criteriaKey:state.pageSnapshot.criteriaKey,maxBin:state.effectiveMaxPrice||numeric('maxBin'),playerId:state.pageSnapshot.player?.id||null,limit:resultLimit()});
       if(token!==state.token)return;
-      state.lastCycleMs=performance.now()-state.cycleStart;state.searches++;acceptMarket(response);
+      state.lastCycleMs=performance.now()-state.cycleStart;state.searches++;state.manualTargetIndex=(state.manualTargetIndex||0)+1;acceptMarket(response);
       addLog('فحص EA جديد #'+response.searchId+' · '+response.count+' عرض · '+response.pages+' صفحة'+(response.identicalToPrevious?' · أعادت EA نفس العروض':''),'success');
-      $('marketPanel').classList.add('market-full');$('marketPanel').scrollTop=0;
-    }catch(e){if(token===state.token){clearMarket(e.message);addLog(e.message,'error');}}
-    finally{if(token===state.token){state.scanning=false;state.phase='stopped';refresh();}}
+      $('marketPanel').scrollTop=0;
+    }catch(e){if(token===state.token){state.scanQueued=false;clearMarket(e.message);addLog(e.message,'error');}}
+    finally{if(token===state.token){state.scanning=false;state.phase='stopped';refresh();if(state.scanQueued){state.scanQueued=false;void scanMarket();}}}
   }
   function displayNativeOffers(){
     const target=$('nativeOffers');if(!target)return;
@@ -629,7 +776,7 @@
         const quote=document.createElement('small');quote.className='card-reference';const q=state.priceQuote;
         quote.textContent=q&&q.itemId===item.itemId&&Date.now()-q.retrievedAt<90000?q.provider.toUpperCase()+' · '+q.platform+' · '+fmt(q.price)+' Coins':(state.language==='ar'?'مرجع خارجي لنفس النسخة: غير مقروء':'Exact-edition provider quote: unavailable');
         const title=document.createElement('h4');title.textContent=item.name||('EA Player '+item.playerId);
-        const detail=document.createElement('p');detail.textContent='Item '+item.itemId+' · Rarity '+(item.rarityId??'—')+' · Player '+item.playerId;
+        const detail=document.createElement('p');detail.textContent=(item.position||'—')+' · Item '+item.itemId+' · Rarity '+(item.rarityId??'—')+' · Player '+item.playerId;
         const trade=document.createElement('small');trade.className='trade-id';trade.textContent='#'+(index+1)+' · Trade '+item.tradeId+(item.observedAt?' · '+new Date(item.observedAt).toLocaleTimeString():'');
         info.append(quote,title,detail,trade);
         const price=document.createElement('div');price.className='market-card-price';price.textContent=item.price>0?fmt(item.price)+' Coins':(state.language==='ar'?'لا يوجد Buy Now':'No Buy Now');
@@ -726,7 +873,7 @@
     checks[checks.length-1].status=dialog()?'pass':'unknown';
     add('CAPTCHA/security challenge',!blocked(),'Session must stop if protection appears',false);
     const counters={pass:checks.filter(x=>x.status==='pass').length,fail:checks.filter(x=>x.status==='fail').length,unknown:checks.filter(x=>x.status==='unknown').length};
-    const report={kind:'CODEX_SNIPE_COMPATIBILITY',version:'3.6.0',at:new Date().toISOString(),page:location.pathname,marketViewDetected:hasMarket,searchButtonDetected:hasSearch,counts:counters,checks,nativeFunctions:state.pageMode?state.pageSnapshot:null};
+    const report={kind:'CODEX_SNIPE_COMPATIBILITY',version:'3.7.0',at:new Date().toISOString(),page:location.pathname,marketViewDetected:hasMarket,searchButtonDetected:hasSearch,counts:counters,checks,nativeFunctions:state.pageMode?state.pageSnapshot:null};
     state.lastAudit=report;
     state.auditLog.unshift({at:report.at,summary:`Pass ${counters.pass}, Fail ${counters.fail}, Need view ${counters.unknown}`,marketView:hasMarket});
     state.auditLog=state.auditLog.slice(0,60);
@@ -740,7 +887,7 @@
   }
   function technicalAsText(){
     const lines=state.auditLog.map(x=>`[${x.at}] ${x.summary} | marketView=${x.marketView}`);
-    return ['CODEX SNIPE TECHNICAL LOG',...lines,'','Last native option audit:',JSON.stringify(state.lastPickerAudit||null),'','Last confirmed market response:',JSON.stringify(state.lastMarket?{searchId:state.lastMarket.searchId,requested:state.lastMarket.requested,count:state.lastMarket.count,pages:state.lastMarket.pages,receivedAt:state.lastMarket.receivedAt,localCacheCleared:state.lastMarket.localCacheCleared,freshEvent:state.lastMarket.freshEvent,identicalToPrevious:state.lastMarket.identicalToPrevious}:null),'','Recent application events:',...state.logs.slice(0,40).map(x=>`[${x.at}] ${x.level} ${x.message}`)].join('\n');
+    return ['CODEX SNIPE TECHNICAL LOG',...lines,'','Last native option audit:',JSON.stringify(state.lastPickerAudit||null),'','Last price-provider status:',JSON.stringify(state.lastPriceStatus||null),'','Last confirmed market response:',JSON.stringify(state.lastMarket?{searchId:state.lastMarket.searchId,requested:state.lastMarket.requested,count:state.lastMarket.count,pages:state.lastMarket.pages,receivedAt:state.lastMarket.receivedAt,localCacheCleared:state.lastMarket.localCacheCleared,freshEvent:state.lastMarket.freshEvent,identicalToPrevious:state.lastMarket.identicalToPrevious}:null),'','Recent application events:',...state.logs.slice(0,40).map(x=>`[${x.at}] ${x.level} ${x.message}`)].join('\n');
   }
   function renderDiagnostics(){
     const a=state.lastAudit;if(!a)return;
@@ -834,7 +981,7 @@
   function dialogConfirm(el){return [...el.querySelectorAll('button')].find(e=>visible(e)&&!e.disabled&&/^(yes|ok|confirm|buy|purchase|accept|موافق|تأكيد|شراء)$/i.test(e.textContent.trim()))||null;}
   function dialogPrice(el){const p=priceFrom(el);if(p)return p;const m=(el?.textContent||'').match(/(?:for|price|مقابل|بسعر)\s*([\d٠-٩۰-۹][\d٠-٩۰-۹,.،\s]*)/i);return m?Core.coins(m[1].trim()):null;}
   function options(){return Core.validate(Core.options({target:input('player'),itemId:input('itemId'),rarity:input('quality'),minRating:input('ratingMin'),maxRating:input('ratingMax'),maxPrice:state.effectiveMaxPrice||numeric('maxBin'),maxSpend:numeric('budget'),maxBuys:numeric('maxBuys'),maxSearches:numeric('maxSearches'),intervalMs:rangeConfig().minMs,autoBuy:$('autoBuy').checked}));}
-  function stop(reason='توقف'){const scanPending=state.scanning;if(!state.running&&!state.starting&&!state.scanning)return;state.starting=false;state.running=false;state.scanning=false;state.ended=Date.now();state.endedMono=performance.now();state.phase='stopped';state.token++;if(state.pageMode)void Page.request('cancel').catch(()=>{});if(scanPending)clearMarket(reason);state.status=reason;addLog(reason,'warning');refresh();save();}
+  function stop(reason='توقف'){state.scanQueued=false;const scanPending=state.scanning;if(!state.running&&!state.starting&&!state.scanning)return;state.starting=false;state.running=false;state.scanning=false;state.ended=Date.now();state.endedMono=performance.now();state.phase='stopped';state.token++;if(state.pageMode)void Page.request('cancel').catch(()=>{});if(scanPending)clearMarket(reason);state.status=reason;addLog(reason,'warning');refresh();save();}
   async function waitForSearch(token, before=[]){
     const deadline=Date.now()+8500;
     while(state.running&&token===state.token&&Date.now()<deadline){
@@ -874,6 +1021,7 @@
   async function checkNativeOffers(o,token){
     for(const item of state.nativeItems){
       if(!state.running||token!==state.token)return;
+      if(state.handledTrades?.has(item.tradeId))continue;
       if(item.observedAt&&Date.now()-item.observedAt>30000)continue;
       const baseId=state.selected?Number(state.selected.playerId||state.selected.itemId):null;
       if(baseId&&item.playerId!==baseId)continue;
@@ -900,7 +1048,7 @@
       }
       if(response.status==='bought'){
         if(state.activeSessionId===response.sessionId&&!state.receipts.has(response.receiptId)){
-          state.receipts.add(response.receiptId);state.bought=response.buys;state.spent=response.spent;
+          state.handledTrades?.add(item.tradeId);showOutcome('won',item);state.receipts.add(response.receiptId);state.bought=response.buys;state.spent=response.spent;
           state.lastRisk=response.risk;addLog('EA purchase confirmed · '+response.tradeId+' · '+fmt(response.price)+' Coins','success');refresh();
           const moved=response.destination;if(moved?.status==='moved')addLog((state.language==='ar'?'تم إرسال الكارت إلى ':'Sent purchased card to ')+moved.destination,'success');
           if(moved?.status==='failed'){addLog('تم الشراء، لكن النقل لم يتأكد: '+moved.reason,'warning');stop('راجع مكان الكارت في EA؛ الشراء مؤكد.');}
@@ -908,7 +1056,8 @@
         }
         return;
       }
-      if(response.status==='missed'){state.misses++;addLog(response.reason,'warning');refresh();continue;}
+      if(response.status==='already-attempted'){state.handledTrades?.add(item.tradeId);continue;}
+      if(response.status==='missed'){state.handledTrades?.add(item.tradeId);showOutcome('missed',item);state.misses++;addLog(response.reason,'warning');refresh();continue;}
       throw Error('EA purchase needs a new price/risk verification; no purchase confirmed.');
     }
   }
@@ -917,16 +1066,18 @@
       if(blocked())throw Error('تم اكتشاف رسالة حماية.');
       if(state.pageMode){
         const started=Date.now();state.cycleStart=performance.now();state.nextIntervalMs=Core.randomInterval(rangeConfig().minMs,rangeConfig().maxMs);phase('searching');clearMarket('EA …');
+        if(o.targets?.length>1){await activateTarget(o.targets[state.searches%o.targets.length]);if(!state.running||token!==state.token)return;o.target=state.selected.name;o.itemId=state.selected.itemId?String(state.selected.itemId):'';}
         if(input('priceSource')!=='manual'){
           await preparePrice();if(!state.running||token!==state.token)return;
           o.maxPrice=state.effectiveMaxPrice;
-          await Page.request('updateQuote',{sessionId:o.sessionId,quote:state.priceQuote,maxPrice:o.maxPrice});
+          if(!(o.targets?.length>1))await Page.request('updateQuote',{sessionId:o.sessionId,quote:state.priceQuote,maxPrice:o.maxPrice});
         }
         const ready=await Page.request('connect');mergePageSnapshot(ready.snapshot);
-        if(ready.snapshot.criteriaKey!==o.criteriaKey)throw Error('Native EA filters changed; restart the session to confirm them.');
+        if(!(o.targets?.length>1)&&ready.snapshot.criteriaKey!==o.criteriaKey)throw Error('Native EA filters changed; restart the session to confirm them.');
         if(!state.running||token!==state.token)return;
         const applied=await applyNative();if(!applied.ok)throw Error(applied.unmapped.join(', '));
         if(!state.running||token!==state.token)return;
+        if(o.targets?.length>1){o.criteriaKey=state.pageSnapshot.criteriaKey;await Page.request('rotateTarget',{sessionId:o.sessionId,targetKey:state.selected.key,criteriaKey:o.criteriaKey,maxPrice:o.maxPrice,quote:state.priceQuote||null});}
         refresh();
         const response=await Page.request('search',{maxBin:o.maxPrice,criteriaKey:o.criteriaKey,playerId:state.selected?Number(state.selected.playerId||state.selected.itemId):null,limit:resultLimit()});
         if(!state.running||token!==state.token)return;
@@ -947,16 +1098,17 @@
       if(!state.running||state.bought>=o.maxBuys)break;
       state.lastCycleMs=Date.now()-started;captureVisibleLowestQuiet();refresh();const remainder=Math.max(0,state.nextIntervalMs-state.lastCycleMs);if(remainder)await nap(remainder);
     }if(state.running)stop(state.bought>=o.maxBuys?'اكتمل عدد المشتريات':'اكتمل عدد عمليات البحث');}
-    catch(e){clearMarket(e.message);state.status='خطأ';addLog(`تم إيقاف المحرك: ${e.message}`,'error');if(state.running)stop('توقف عند خطأ');state.status='خطأ';refresh();}
+    catch(e){if(token!==state.token)return;clearMarket(e.message);state.status='خطأ';addLog(`تم إيقاف المحرك: ${e.message}`,'error');if(state.running)stop('توقف عند خطأ');state.status='خطأ';refresh();}
   }
   async function start(){
     if(state.running||state.starting||state.scanning||state.editionUpdating)return;
     clearTimeout(searchTimer);state.pendingQuery++;
     const startToken=++state.token;state.starting=true;refresh();
     try{
-    if(state.selectedTargets.length>1){addLog('تم اختيار عدة بطاقات؛ السوق الأصلي لا يدعم البحث المتعدد من الواجهة الحالية. استخدم بطاقة واحدة أو اكمل ربط القوائم أولًا.','warning');$('compatPanel').open=true;compatibilityAudit();return;}
+    unlockAudio();stashActiveTarget();const targets=state.selectedTargets.map(x=>JSON.parse(JSON.stringify(x)));
+    if(targets.length>1){if(input('priceSource')!=='manual'&&targets.some(x=>!x.itemId))throw Error('اختر إصدار كارت لكل لاعب قبل استخدام التسعير الخارجي.');await activateTarget(targets[0]);if(startToken!==state.token)return;}
     if(!Core){addLog('مكتبة التحقق من الفلاتر غير متاحة','error');return;}
-    let o;try{await preparePrice();o=options();o.maxPrice=state.effectiveMaxPrice||o.maxPrice;}catch(e){clearMarket(e.message);addLog(e.message,'error');return;}
+    let o;try{await preparePrice();o=options();o.maxPrice=state.effectiveMaxPrice||o.maxPrice;o.targets=targets;}catch(e){clearMarket(e.message);addLog(e.message,'error');return;}
     if(startToken!==state.token)return;
     if(Page && !await connectEA())return;
     if(startToken!==state.token)return;
@@ -987,11 +1139,11 @@
     if(blocked()){addLog('رسالة حماية ظاهرة؛ لن يبدأ المحرك.','error');return;}
     if(o.autoBuy&&!state.pageMode){addLog('Auto Buy يحتاج جسر MAIN ودالة شراء EA الأصلية.','error');return;}
     if(state.pageMode){
-      const native=await Page.request('beginSession',{criteriaKey:o.criteriaKey,maxPrice:o.maxPrice,hardMaxPrice:numeric('maxBin'),maxSpend:o.maxSpend,maxBuys:o.maxBuys,autoBuy:o.autoBuy,itemId:o.itemId,minRating:o.minRating,maxRating:o.maxRating,postPurchase:input('postPurchase'),referencePrice:state.priceQuote?.price||null,referenceQuote:state.priceQuote||null});
+      const native=await Page.request('beginSession',{criteriaKey:o.criteriaKey,maxPrice:o.maxPrice,hardMaxPrice:numeric('maxBin'),maxSpend:o.maxSpend,maxBuys:o.maxBuys,autoBuy:o.autoBuy,itemId:o.itemId,minRating:o.minRating,maxRating:o.maxRating,targets:targets.length>1?targets.map(x=>({key:x.key,playerId:x.playerId,itemId:Number(x.itemId)||null,rarities:x.rarities||[]})):[],postPurchase:input('postPurchase'),referencePrice:state.priceQuote?.price||null,referenceQuote:state.priceQuote||null});
       o.sessionId=native.sessionId;state.activeSessionId=native.sessionId;
     }
     if(startToken!==state.token)return;
-    state.token++;state.running=true;state.started=Date.now();state.ended=0;state.startedMono=performance.now();state.endedMono=null;state.cycleStart=null;state.receipts=new Set();state.phase='searching';state.lastRisk=null;state.lastCycleMs=0;state.nextIntervalMs=0;state.searches=0;state.matches=0;state.bought=0;state.misses=0;state.spent=0;state.status='يبحث';state.logs=[];
+    state.token++;state.running=true;state.started=Date.now();state.ended=0;state.startedMono=performance.now();state.endedMono=null;state.cycleStart=null;state.receipts=new Set();state.handledTrades=new Set();state.phase='searching';state.lastRisk=null;state.lastCycleMs=0;state.nextIntervalMs=0;state.searches=0;state.matches=0;state.bought=0;state.misses=0;state.spent=0;state.status='يبحث';state.logs=[];
     addLog(o.autoBuy?'بدأ Auto Snipe (اختيار صريح)':'بدأ البحث في وضع التنبيه بدون شراء','success');refresh();save();run(o,state.token);
     }catch(e){addLog(e.message,'error');}finally{state.starting=false;refresh();}
   }
@@ -1004,12 +1156,12 @@
     state.language=lang;
     const node=shadow.querySelector('#shell'),wrapper=document.createElement('div');wrapper.innerHTML=uiHTML();node.replaceWith(wrapper.firstElementChild);
     [...shadow.querySelectorAll('details')].forEach((d,i)=>d.open=opens[i]??d.open);
-    fillSettings(settings);populatePresets();updateSpeedControls();renderPlayers(state.players);renderTargets();renderEvents();updateDatalists();renderLogs();renderDiagnostics();bindUI();displayNativeOffers();captureVisibleLowestQuiet();refresh();save();
+    organizeWorkspace();fillSettings(settings);populatePresets();updateSpeedControls();renderPlayers(state.players);renderTargets();renderEvents();updateDatalists();renderLogs();renderDiagnostics();bindUI();displayNativeOffers();captureVisibleLowestQuiet();refresh();save();
   }
   function bindUI(){
-    $('close').addEventListener('click',closePanel);
+    bindWorkspace();$('close').addEventListener('click',closePanel);
     $('maxBin').addEventListener('input',()=>{state.effectiveMaxPrice=null;state.lastRisk=null;refresh();});
-    for(const id of ['priceSource','pricePlatform','pricePercent','itemId'])$(id).addEventListener('change',()=>{state.priceQuote=null;state.effectiveMaxPrice=null;$('quoteBox').textContent='—';state.lastRisk=null;displayNativeOffers();});
+    for(const id of ['priceSource','pricePlatform','pricePercent','itemId'])$(id).addEventListener('change',()=>{state.priceQuote=null;state.effectiveMaxPrice=null;$('quoteBox').textContent='—';if($('providerSite'))$('providerSite').href=input('priceSource')==='futgg'?'https://www.fut.gg/players/':'https://www.futbin.com/27/players';state.lastRisk=null;displayNativeOffers();});
     $('loadEditions').addEventListener('click',()=>loadPriceEditions().catch(e=>addLog(e.message,'error')));
     $('refreshQuote').addEventListener('click',()=>refreshPrice(true).catch(e=>{$('quoteBox').textContent=e.message;addLog(e.message,'warning');}));
     $('priceEdition').addEventListener('change',async()=>{
@@ -1022,6 +1174,7 @@
         const available=await Page.request('options',{kind:'event'}),option=available.options.find(x=>x.id===edition.rarityId);
         if(!option)throw Error('EA does not expose this edition rarity in market filters.');
         const result=await Page.request('choose',{token:available.token,index:option.index});mergePageSnapshot(result.snapshot);
+        if(state.selected){Object.assign(state.selected,{itemId:id,rating:edition.rating||state.selected.rating,position:edition.position||state.selected.position});upsertTarget(state.selected);stashActiveTarget();renderTargets();}
         $('quoteBox').textContent=(state.language==='ar'?'تم تحديد إصدار EA؛ الشراء يطابق Item ID بالضبط.':'EA edition selected; purchases require the exact Item ID.');
       }catch(e){$('itemId').value='';$('priceEdition').value='';addLog(e.message,'error');}finally{state.editionUpdating=false;save();refresh();}
     });
@@ -1033,7 +1186,7 @@
       if(state.running||state.starting||state.scanning)return;
       try{
         if(state.pageMode){await Page.request('connect');const response=await Page.request('clearPlayer');mergePageSnapshot(response.snapshot);}
-        state.priceQuote=null;state.editions=[];$('quoteBox').textContent='—';$('priceEdition').replaceChildren(new Option('—',''));state.selectedTargets=[];state.selected=null;state.nativePlayerConfirmed=false;$('player').value='';$('itemId').value='';
+        state.priceQuote=null;state.editions=[];$('quoteBox').textContent='—';$('priceEdition').replaceChildren(new Option('—',''));state.selectionCollapsed=false;state.selectedTargets=[];state.selected=null;state.nativePlayerConfirmed=false;$('player').value='';$('itemId').value='';
         $('playerSyncState').textContent=state.language==='ar'?'EA: لم يتم اختيار لاعب':'EA: no player selected';
         renderTargets();renderPlayers(state.players);save();
       }catch(e){addLog(e.message,'error');}
@@ -1079,12 +1232,12 @@
     createPortal();
     try{const stored=await chrome.storage.local.get(STORAGE);const config=stored[STORAGE]||{};state.presets=config.presets||{};state.cache=config.cache||[];state.logs=config.logs||[];state.selected=config.selected||null;state.selectedTargets=Array.isArray(config.selectedTargets)?config.selectedTargets:[];state.eventTargets=Array.isArray(config.eventTargets)?config.eventTargets:[];
       if(config.language==='en')setLanguage('en');
-      fillSettings(config.settings||{});populatePresets();updateSpeedControls();renderLogs();renderTargets();renderEvents();updateDatalists();}
+      state.panelLayout=config.panelLayout||null;restorePanelLayout();fillSettings(config.settings||{});populatePresets();updateSpeedControls();renderLogs();renderTargets();renderEvents();updateDatalists();}
     catch(e){addLog('تعذر قراءة الإعدادات المحلية: '+e.message,'warning');}
     updateSpeedControls();observeNav();refresh();timer=setInterval(refresh,200);
     const animate=()=>{if(state.open&&(state.running||state.scanning))paintSpeedGauge(state.nextIntervalMs);requestAnimationFrame(animate);};requestAnimationFrame(animate);
     window.addEventListener('pagehide',()=>{if(state.running)stop('صفحة EA اتقفلت أو اتحدثت');});
-    addLog('واجهة CODEX SNIPE v3.6.0 جاهزة — بانتظار اكتشاف قائمة EA.');
+    addLog('واجهة CODEX SNIPE v3.7.0 جاهزة — بانتظار اكتشاف قائمة EA.');
   }
   if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',init,{once:true});else init();
 })();

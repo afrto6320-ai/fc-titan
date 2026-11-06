@@ -4,9 +4,9 @@ AI-powered EA FC Ultimate Team Trading Platform
 
 ## CODEX SNIPE browser extension
 
-Source: `extension/` (Manifest V3, v3.6.0). Load that directory as an unpacked extension, reload the FC Web App, then use **Connect to EA Market**.
+Source: `extension/` (Manifest V3, v3.7.0). Load that directory as an unpacked extension, reload the FC Web App, then use **Connect to EA Market**.
 
-Download: [CODEX_SNIPE_v3.6.0.zip](downloads/CODEX_SNIPE_v3.6.0.zip). The unified market scan requests EA again, gathers up to 100 listings using native pagination and derives the minimum from that response. Optional exact-edition FUT.GG/Futbin prices are independent references, not EA listings.
+Download: [CODEX_SNIPE_v3.7.0.zip](downloads/CODEX_SNIPE_v3.7.0.zip). The workspace pins up to 12 player targets, rotates them in one budgeted native session, and supports persistent panel ordering and optional full-page results. The unified market scan requests EA again, gathers up to 100 listings using native pagination and derives the minimum from that response. Optional exact-edition FUT.GG/Futbin prices are independent references, not EA listings.
 
 See `extension/README_AR.md` for usage and known limitations and `extension/NATIVE_BRIDGE_NOTES.md` for the source contracts and validation evidence.
 

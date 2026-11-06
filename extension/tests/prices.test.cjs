@@ -43,3 +43,15 @@ test('a failed force refresh invalidates the previous quote for subsequent reque
   await assert.rejects(client.get({...args,force:true}),/offline/);now+=2000;
   await assert.rejects(client.get(args),/offline/);assert.equal(calls,3);
 });
+test('Futbin retries HTTP 400 with native base ID + exact resource ID and never takes the base edition price',async()=>{
+  const urls=[];const client=createClient(async(url)=>{urls.push(url);if(urls.length===1)return {ok:false,status:400};return response({'209331':{prices:{pc:{LCPrice:'500'}}},'50540979':{prices:{pc:{lcPrice:'1,500'}}}});},()=>100000);
+  const r=await client.get({provider:'futbin',platform:'pc',ids:[50540979],baseIds:{50540979:209331}});
+  assert.equal(r.quotes[0].price,1500);assert.match(urls[1],/player=209331&rids=50540979$/);
+  const noBase=createClient(async()=>({ok:false,status:400}),()=>100000);
+  await assert.rejects(noBase.get({provider:'futbin',platform:'pc',ids:[50540979]}),e=>e.status===400);
+});
+test('Futbin does not retry a denial or rate limit, and reports HTML challenges instead of prices',async()=>{
+  for(const status of [403,429]){let count=0;const c=createClient(async()=>{count++;return {ok:false,status};},()=>100000);await assert.rejects(c.get({provider:'futbin',platform:'pc',ids:[50540979],baseIds:{50540979:209331}}),e=>e.status===status);assert.equal(count,1);}
+  const html=createClient(async()=>({ok:true,headers:{get:()=> 'text/html'},json:()=>{throw Error('must not parse HTML');}}),()=>100000);
+  await assert.rejects(html.get({provider:'futbin',platform:'console',ids:[50540979]}),e=>e.code==='NOT_JSON');
+});

@@ -1,3 +1,13 @@
+# 3.7.0
+- Keep market results embedded by default; full-page display is explicitly toggled.
+- Combine player search and transfer controls, move pricing into transfer filters and native connection below activity logs, and persist reversible panel ordering without rebuilding controls.
+- Pin native portraits/positions in compact target cards; collapse suggestions on selection and add up to 12 distinct players.
+- Rotate native player/rarity filters through one MAIN session ledger. Preserve total spending and purchase caps and revalidate target identity/quote after every switch.
+- Coalesce rapid manual clicks into one trailing fresh scan, explicitly evict local market cache before searches/pages, deduplicate native player IDs/Trade IDs, and skip previously attempted trades without rebidding.
+- Add an independent CSS activity rotor, transient confirmed/missed toasts, and optional gesture-unlocked Web Audio tones.
+- Add Futbin 400 base-player/resource-ID query formatting, same-platform price-field aliases, structured HTTP/HTML errors and sanitized provider diagnostics. Live provider access remains unverified.
+- Extend native/browser regressions for shared multi-player budgets, fast-click serialization, pinned cards, positions, layout controls, visible rotor animation, toast/audio and duplicate attempts.
+
 # 3.6.0
 - Merge results and minimum into a full-page vertical market view; manual Scan dispatches a fresh native search using current filters instead of reading the previous batch.
 - Add user-selected 1–100 results with native pagination, sentinel trimming, Trade ID deduplication, response provenance and repeated-response disclosure. Clear listings and minimum on empty/error/cancelled scans.

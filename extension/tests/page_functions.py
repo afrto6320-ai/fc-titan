@@ -59,6 +59,7 @@ with sync_playwright() as p:
     stale={'name':'Mohamed Salah','rating':88,'itemId':50540979,'playerId':None,'source':'futgg','key':'item:50540979'}
     stored={'gpts_embedded_v3':{'selected':stale,'selectedTargets':[stale],'settings':{'player':'Mohamed Salah','itemId':'50540979'}}}
     shim='window.chrome={runtime:{getURL:()=>'+json.dumps(css)+',sendMessage:async()=>{throw Error("Unexpected external catalogue request")}},storage:{local:{get:async()=>('+json.dumps(stored)+'),set:async()=>{}}}};'
+    shim+='window.__playedTones=0;const originalOscillator=AudioContext.prototype.createOscillator;AudioContext.prototype.createOscillator=function(){window.__playedTones++;return originalOscillator.call(this);};'
     scripts=['price-providers.js','snipe-core.js','trade-core.js','ea-options.js','ea-page-client.js','native-market.js','embedded.js']
     loaded=cdp.send('Runtime.evaluate',{'contextId':world,'expression':shim+'\n'+'\n'.join((ROOT/name).read_text() for name in scripts)})
     assert 'exceptionDetails' not in loaded,loaded
@@ -136,7 +137,7 @@ with sync_playwright() as p:
     page.wait_for_function('(old)=>document.querySelector("#gpts-v3-host").shadowRoot.querySelector("#cycleRing").style.strokeDashoffset!==old',arg=offset)
     page.wait_for_function('window.__testSearches===2',timeout=12000)
     page.wait_for_function("document.querySelector('#gpts-v3-host').shadowRoot.querySelector('#runBadge').textContent.includes('STANDBY')")
-    assert page.evaluate('window.__testCacheClears')==2
+    assert page.evaluate('window.__testCacheClears')==4
     assert page.evaluate('__testObservers.size')==0
     assert sh.locator('#searchCount').inner_text()=='2'
     print('PASS: source-derived native search and price handlers, fresh empty responses, repeat search')
@@ -180,6 +181,8 @@ with sync_playwright() as p:
     page.wait_for_function("document.querySelector('#gpts-v3-host').shadowRoot.querySelector('#buyCount').textContent==='1'")
     assert page.evaluate('__bidCalls')==1 and page.evaluate('__lastBidItem===__testItems[0]')
     assert sh.locator('#spent').inner_text()=='900' and not dialogs
+    audio_check=cdp.send('Runtime.evaluate',{'contextId':world,'expression':'window.__playedTones','returnByValue':True})
+    assert audio_check['result']['value']>=4
     assert 'already pending' not in sh.locator('#playerResults').inner_text()
     sh.locator('#shell').evaluate('(e)=>e.scrollTop=0')
     page.screenshot(path='/tmp/CODEX_SNIPE_v3.5.0_gauge.png')
@@ -230,7 +233,18 @@ with sync_playwright() as p:
         raise
     assert sh.locator('#buyCount').inner_text()=='0' and sh.locator('#spent').inner_text()=='0'
     sh.locator('#autoBuy').uncheck();page.evaluate("window.__bidScenario='won'")
-    print('PASS: lost auction counts as a miss and never as a purchase')
+    assert sh.locator('.outcome-toast.missed').count()==1
+    assert sh.locator('.outcome-toast.missed').evaluate('(e)=>getComputedStyle(e).animationName')=='toast-fade'
+    print('PASS: lost auction counts as a miss, shows a distinct missed toast, and never counts as a purchase')
+
+    snap=request('connect')['result']['snapshot']
+    retry_session=request('beginSession',{'criteriaKey':snap['criteriaKey'],'maxPrice':1000,'maxSpend':10000,'maxBuys':1,'autoBuy':True})['result']['sessionId']
+    result=request('search',{'maxBin':1000,'criteriaKey':snap['criteriaKey']})['result']
+    before=page.evaluate('__bidCalls')
+    repeated=request('buy',{'sessionId':retry_session,'searchId':result['searchId'],'tradeId':'lost-race','instanceId':'123456','expectedPrice':900})
+    assert repeated['result']['status']=='already-attempted' and page.evaluate('__bidCalls')==before
+    request('cancel')
+    print('PASS: the same previously attempted Trade ID is skipped across sessions without dispatching or counting a second bid')
 
     assert request('connect')['ok']
     assert not request('constructor')['ok']
@@ -305,24 +319,26 @@ with sync_playwright() as p:
     assert sh.locator('.market-card').count()==37
     assert sh.locator('#lowestPriceValue').inner_text()=='640 Coins'
     assert page.evaluate('__testPageRequests')==[1,2]
-    assert page.evaluate('__testCacheClears')==before['cache']+1 and page.evaluate('__bidCalls')==before['bids']
+    assert page.evaluate('__testCacheClears')==before['cache']+3 and page.evaluate('__bidCalls')==before['bids']
     assert '37/37' in sh.locator('#marketResponse').inner_text()
+    assert 'market-full' not in sh.locator('#marketPanel').get_attribute('class')
+    sh.locator('#marketFull').click()
     assert 'market-full' in sh.locator('#marketPanel').get_attribute('class')
     assert sh.locator('.market-card').first.locator('.market-portrait img').count()==1
     assert sh.locator('.market-card[data-trade-id="page-trade-20"]').count()==1
-    page.screenshot(path='/tmp/CODEX_SNIPE_v3.6.0_market.png')
+    page.screenshot(path='/tmp/CODEX_SNIPE_v3.7.0_market_full.png')
+    sh.locator('#marketFull').click()
     old_response=sh.locator('#marketResponse').inner_text()
     sh.locator('#scanMarket').click()
-    page.wait_for_function('(old)=>{const s=document.querySelector("#gpts-v3-host").shadowRoot;return !s.querySelector("#scanMarket").disabled&&s.querySelector("#marketResponse").textContent!==old;}',arg=old_response)
+    page.wait_for_function('(old)=>{const s=document.querySelector("#gpts-v3-host").shadowRoot;return !s.querySelector("#resultsCount").disabled&&s.querySelector("#marketResponse").textContent!==old;}',arg=old_response)
     assert sh.locator('.market-card').count()==37
     assert 'نفس العروض' in sh.locator('#marketResponse').inner_text()
     page.evaluate('window.__testPages=[[]]')
     sh.locator('#scanMarket').click()
-    page.wait_for_function("()=>{const s=document.querySelector('#gpts-v3-host').shadowRoot;return !s.querySelector('#scanMarket').disabled&&s.querySelector('#marketResponse').textContent.includes('0/37');}")
+    page.wait_for_function("()=>{const s=document.querySelector('#gpts-v3-host').shadowRoot;return !s.querySelector('#resultsCount').disabled&&s.querySelector('#marketResponse').textContent.includes('0/37');}")
     assert sh.locator('.market-card').count()==0 and sh.locator('#lowestPriceValue').inner_text()=='—'
     assert 'لا توجد عروض' in sh.locator('#nativeOffers').inner_text()
     # Change filters while the native controller is the result screen.
-    sh.locator('#marketFull').click()
     sh.locator('[data-native-picker="quality"]').click();sh.locator('.native-option').filter(has_text='Gold').wait_for()
     assert page.evaluate('__nav.currentController instanceof UTMarketSearchFiltersViewController')
     print('PASS: manual scan makes fresh requests, paginates 37 real rows, deduplicates sentinel, updates minimum, reports repeated offers, clears on empty, reconnects pickers')
@@ -385,6 +401,75 @@ with sync_playwright() as p:
         if failed:assert 'النقل لم يتأكد' in sh.locator('#logs').inner_text()
     sh.locator('#postPurchase').select_option('leave');sh.locator('#autoBuy').uncheck()
     print('PASS: original EA action move sends confirmed item to Club/Transfer List, leave performs no move, failed move never retries or erases purchase')
+
+    # Repeated clicks queue one fresh scan, never overlap requests or append prior cards.
+    sh.locator('#autoBuy').uncheck();sh.locator('#resultsCount').fill('20')
+    page.evaluate("window.__testItems=[];window.__testPages=undefined;window.__testDelay=350;window.__requestsMax=0;window.__searchedPlayers=[]")
+    before=page.evaluate('__testSearches')
+    sh.locator('#scanMarket').click();sh.locator('#scanMarket').click();sh.locator('#scanMarket').click();sh.locator('#scanMarket').click()
+    page.wait_for_function('(before)=>__testSearches===before+2',arg=before)
+    page.wait_for_function("()=>!document.querySelector('#gpts-v3-host').shadowRoot.querySelector('#resultsCount').disabled")
+    assert page.evaluate('__requestsMax')==1 and sh.locator('.market-card').count()==0
+    assert 'market-full' not in sh.locator('#marketPanel').get_attribute('class')
+    assert page.evaluate('__nativeMinBid')==0 and page.evaluate('__nativeMaxBid')==0
+    print('PASS: rapid clicks coalesce to one additional fresh request, no overlap, no bid-filter mutation, no stale card accumulation')
+
+    # Stable workspace layout, positions and pinned multi-player cards.
+    assert sh.locator('[data-panel-key="players"] #transferSection #priceSource').count()==1
+    assert sh.locator('.column.right > [data-panel-key="logs"] + [data-panel-key="connection"]').count()==1
+    sh.locator('#editLayout').click()
+    original_cap=sh.locator('#maxBin').input_value()
+    sh.locator('[data-panel-key="stats"] > .panel-head [data-move="column"]').click()
+    assert sh.locator('.column.control > [data-panel-key="stats"]').count()==1
+    sh.locator('#resetLayout').click()
+    assert sh.locator('.column.right > [data-panel-key="stats"]').count()==1 and sh.locator('#maxBin').input_value()==original_cap
+    sh.locator('#editLayout').click()
+    sh.locator('#addPlayer').click()
+    page.evaluate('window.__duplicatePlayers=true')
+    sh.locator('#player').fill('Salah');sh.locator('#playerResults .result').first.wait_for()
+    assert sh.locator('#playerResults .result').count()==1 and 'RW' in sh.locator('#playerResults .result').first.inner_text()
+    page.evaluate('window.__duplicatePlayers=false')
+    sh.locator('#player').fill('son');sh.locator('#playerResults .result').filter(has_text='Son Heungmin').wait_for()
+    sh.locator('#playerResults .result').filter(has_text='Son Heungmin').click()
+    page.wait_for_function("__nav.currentController.viewmodel.searchCriteria.maskedDefId===200104")
+    assert sh.locator('#selectedTargets .selected-card').count()==2 and sh.locator('#playerSearchDrawer').is_hidden()
+    assert sh.locator('.selected-card[data-player-id="200104"] img').count()==1
+    assert 'LW' in sh.locator('.selected-card[data-player-id="200104"]').inner_text()
+    sh.locator('.selected-card[data-player-id="209331"] .target-card-select').click()
+    page.wait_for_function("()=>{const s=document.querySelector('#gpts-v3-host').shadowRoot;return !s.querySelector('#start').disabled&&__nav.currentController.viewmodel?.searchCriteria.maskedDefId===209331;}")
+    assert page.evaluate('__nav.currentController.viewmodel.searchCriteria.rarities')==[12]
+    sh.locator('.selected-card[data-player-id="200104"] .target-card-select').click()
+    page.wait_for_function("()=>!document.querySelector('#gpts-v3-host').shadowRoot.querySelector('#start').disabled&&__nav.currentController.viewmodel?.searchCriteria.maskedDefId===200104")
+    assert page.evaluate('__nav.currentController.viewmodel.searchCriteria.rarities')==[]
+    sh.locator('#shell').evaluate('(e)=>e.scrollTop=0')
+    page.screenshot(path='/tmp/CODEX_SNIPE_v3.7.0_targets.png')
+    print('PASS: combined player/transfer panels, pricing placement, connection below logs, reversible panel ordering, native positions, duplicate player IDs removed, pinned cards and collapsed picker')
+
+    # A two-player run preserves a single budget ledger. A second 900 purchase cannot fit 1500 total.
+    page.evaluate('window.__autoTargetOffers=true;window.__searchedPlayers=[];window.__testDelay=120;window.__testItems=[]')
+    sh.locator('#speedPreset').select_option('custom');sh.locator('#speedMin').fill('0.6');sh.locator('#speedMax').fill('0.6')
+    sh.locator('#maxSearches').fill('4');sh.locator('#maxBuys').fill('2');sh.locator('#budget').fill('1500');sh.locator('#autoBuy').check()
+    calls=page.evaluate('__bidCalls');sh.locator('#start').click()
+    page.wait_for_function("()=>document.querySelector('#gpts-v3-host').shadowRoot.querySelector('#searchCount').textContent==='1'")
+    angle=sh.locator('#gaugeRotor').evaluate('(e)=>getComputedStyle(e).transform')
+    page.wait_for_function('(angle)=>getComputedStyle(document.querySelector("#gpts-v3-host").shadowRoot.querySelector("#gaugeRotor")).transform!==angle',arg=angle)
+    page.wait_for_function("()=>{const s=document.querySelector('#gpts-v3-host').shadowRoot;return s.querySelector('#searchCount').textContent==='4'&&!s.querySelector('#start').disabled;}",timeout=12000)
+    assert page.evaluate('__searchedPlayers')==[209331,200104,209331,200104]
+    assert page.evaluate('__bidCalls')==calls+1 and sh.locator('#buyCount').inner_text()=='1' and sh.locator('#spent').inner_text()=='900'
+    assert sh.locator('#gaugeRotor').evaluate('(e)=>e.style.animationPlayState')=='paused'
+    # With enough budget both players can be purchased, still in one session.
+    page.evaluate('window.__searchedPlayers=[]')
+    sh.locator('#budget').fill('2000');sh.locator('#maxSearches').fill('2');calls=page.evaluate('__bidCalls');sh.locator('#start').click()
+    page.wait_for_function("()=>{const s=document.querySelector('#gpts-v3-host').shadowRoot;return s.querySelector('#buyCount').textContent==='2'&&!s.querySelector('#start').disabled;}",timeout=12000)
+    assert page.evaluate('__searchedPlayers')==[209331,200104] and page.evaluate('__bidCalls')==calls+2
+    assert sh.locator('#spent').inner_text()=='1,800' and sh.locator('.outcome-toast.won').count()>=1
+    assert 'LW' in sh.locator('.market-card').first.inner_text()
+    print('PASS: native round-robin target selection, exact ID/rarity checks, one budget/purchase ledger across players, rotor animates during run and pauses at stop, confirmed-purchase toasts')
+    page.evaluate('window.__autoTargetOffers=false;window.__testDelay=50')
+    sh.locator('.selected-card[data-player-id="200104"] > .target-remove').click()
+    page.wait_for_function('__nav.currentController.viewmodel?.searchCriteria.maskedDefId===209331')
+    assert sh.locator('.selected-card').count()==1
+    sh.locator('#maxBuys').fill('1');sh.locator('#maxSearches').fill('1');sh.locator('#budget').fill('10000')
 
     # A successful transport with no isWon state is uncertain, not a completed purchase.
     page.evaluate("resetTrade('uncertain-buy');window.__bidScenario='pending'")

@@ -48,10 +48,11 @@ window.services.Item.bid=(item,price)=>{
 };
 window.resetTrade=(tradeId='trade-1')=>{
   const auction={tradeId,buyNowPrice:900,won:false,canBuy:coins=>!auction.won&&coins>=auction.buyNowPrice,getSecondsRemaining:()=>auction.won?0:60,isWon:()=>auction.won};
-  const item={isPlayer:()=>true,isManager:()=>false,id:123456,definitionId:50540979,databaseId:209331,rating:91,rareflag:12,getMarketAverage:()=>window.__testAverage||null,getStaticData:()=>({commonName:'Mohamed Salah'}),getAuctionData:()=>auction};
+  const item={preferredPosition:7,isPlayer:()=>true,isManager:()=>false,id:123456,definitionId:50540979,databaseId:209331,rating:91,rareflag:12,getMarketAverage:()=>window.__testAverage||null,getStaticData:()=>({commonName:'Mohamed Salah'}),getAuctionData:()=>auction};
   window.__testItems=[item];return item;
 };
-const player={id:209331,commonName:'Mohamed Salah',rating:91};
+const player={id:209331,commonName:'Mohamed Salah',rating:91,preferredPosition:7},secondPlayer={id:200104,commonName:'Son Heungmin',rating:89,preferredPosition:'LW'};
+window.PlayerPosition={7:'RW'};
 class Filter {
   constructor(owner,kind){this.owner=owner;this.kind=kind;this.index=0;this.iconTable=new Map();}
   getOptions(){
@@ -90,7 +91,7 @@ window.UTMarketSearchFiltersViewController=class UTMarketSearchFiltersViewContro
       }
     };
     const selected={value:null};
-    const playerSearch={searchEngine:{getEntriesForString:q=>['salah','moha'].includes(q.toLowerCase())?[player]:[]},
+    const playerSearch={searchEngine:{getEntriesForString:q=>['salah','moha'].includes(q.toLowerCase())?(window.__duplicatePlayers?[player,player]:[player]):['son','heung'].includes(q.toLowerCase())?[secondPlayer]:[]},
       getSelected:()=>selected.value,clearInput:()=>{selected.value=null;},
       selectPlayerEntry:(p)=>{selected.value=p;this.ePlayerNameChanged();}};
     const map=new Map();
@@ -106,8 +107,10 @@ window.UTMarketSearchFiltersViewController=class UTMarketSearchFiltersViewContro
 window.UTMarketSearchResultsViewController=class UTMarketSearchResultsViewController {
   constructor(){this.onDataChange=new Observable();this.paginationViewModel={getNumItemsPerPage:()=>20};}
   initWithSearchCriteria(criteria){this.searchCriteria=criteria;}
-  load(){window.__testSearches++;this._requestItems(1);}
-  _requestItems(page){window.__testPageRequests=(window.__testPageRequests||[]);window.__testPageRequests.push(page);setTimeout(()=>this.onDataChange.notify({items:window.__testPages?.[page-1]??window.__testItems}),window.__testDelay);}
+  load(){window.__testSearches++;window.__searchedPlayers=(window.__searchedPlayers||[]);window.__searchedPlayers.push(this.searchCriteria.maskedDefId);
+    if(window.__autoTargetOffers){const id=this.searchCriteria.maskedDefId,rare=this.searchCriteria.rarities[0]??1;const item=resetTrade('rotation-'+id+'-'+window.__testSearches);item.databaseId=id;item.definitionId=id+(rare===12?3*16777216:0);item.rareflag=rare;item.preferredPosition=id===209331?7:'LW';item.getStaticData=()=>({commonName:id===209331?'Mohamed Salah':'Son Heungmin'});}
+    this._requestItems(1);}
+  _requestItems(page){window.__testPageRequests=(window.__testPageRequests||[]);window.__testPageRequests.push(page);const items=window.__testPages?.[page-1]??window.__testItems;window.__requestsActive=(window.__requestsActive||0)+1;window.__requestsMax=Math.max(window.__requestsMax||0,window.__requestsActive);setTimeout(()=>{window.__requestsActive--;this.onDataChange.notify({items});},window.__testDelay);}
 };
 window.UTMarketSearchResultsSplitViewController=class UTMarketSearchResultsSplitViewController {
   constructor(){this._listController=new UTMarketSearchResultsViewController();}
