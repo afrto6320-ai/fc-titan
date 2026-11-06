@@ -8,6 +8,7 @@ with sync_playwright() as p:
  b=p.chromium.launch(executable_path='/usr/bin/chromium',headless=True,args=['--no-sandbox','--disable-dev-shm-usage'])
  page=b.new_page(viewport={'width':1500,'height':960})
  page.set_content(html)
+ page.add_script_tag(content=(root/'extension-client.js').read_text())
  page.add_script_tag(content=(root/'snipe-core.js').read_text())
  page.add_script_tag(content=(root/'native-market.js').read_text())
  page.add_script_tag(content=(root/'embedded.js').read_text())
@@ -55,6 +56,23 @@ with sync_playwright() as p:
  assert page.evaluate('__deniedPriceRequests')==1 and page.evaluate('window.__eaSearches||0')==searches, (page.evaluate('__deniedMessageTypes'),page.evaluate('window.__eaSearches||0'),searches)
  assert sh.locator('#priceSource').input_value()=='futbin'
  print('PASS: denied Futbin reference expands pricing, displays HTTP 403, sends no market search and retains the chosen source')
+ page.evaluate("""() => {
+   window.__savedRuntime=chrome.runtime;
+   __savedRuntime.sendMessage=async m=>({ok:true,result:{quotes:[{provider:m.payload.provider,platform:m.payload.platform,itemId:m.payload.ids[0],price:1200,retrievedAt:Date.now()}]}});
+   chrome.runtime=undefined;
+ }""")
+ sh.locator('#priceSource').select_option('futgg');sh.locator('#refreshQuote').click()
+ sh.locator('#quoteBox').filter(has_text='1,200').wait_for()
+ assert 'FUTGG' in sh.locator('#quoteBox').inner_text()
+ page.evaluate('() => {window.__savedRuntime.sendMessage=undefined;}')
+ sh.locator('#refreshQuote').click()
+ sh.locator('#quoteBox').filter(has_text='RUNTIME_UNAVAILABLE').wait_for()
+ sh.locator('#technicalPanel summary').click()
+ with page.expect_download() as dl: sh.locator('#exportTechnical').click()
+ diagnostic=pathlib.Path(dl.value.path()).read_text()
+ assert 'extension-messaging' in diagnostic and 'RUNTIME_UNAVAILABLE' in diagnostic
+ assert 'HTTP 403' not in sh.locator('#quoteBox').inner_text()
+ print('PASS: captured runtime survives global replacement; a missing API becomes a reload diagnostic before any provider request')
  page.screenshot(path=str(pathlib.Path(tempfile.gettempdir())/'GPT_SNIPE_v3.3.1_local_preview.png'))
  print('PASS: native navigation, connection report download, original picker & click, player autocomplete, EA search click (synthetic fixture only)')
  b.close()

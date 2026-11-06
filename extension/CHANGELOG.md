@@ -1,3 +1,10 @@
+# 3.9.2
+- Diagnose the uploaded price failure before the provider stage: missing runtime.sendMessage, null provider status and an older 3.9.0 UI were present in the log; they do not establish a new provider HTTP denial.
+- Add an isolated extension API client that retains the initialized runtime/storage objects, detects invalidated contexts, bounds worker response time, and separates worker/messaging failures from provider replies without fallback requests.
+- Record manifest/UI versions, helper availability and price failure stage in technical diagnostics; show a reload instruction and prevent a price-dependent search when extension messaging fails.
+- Add independent static comparison of Pharaoh 1.1.0, Deep Snipe 0.9.39 and FC27 Enhancer 27.0.1.5. No vendor engines, authentication capture or raw market request fallback were incorporated.
+- Add runtime replacement/invalidation/worker failure/timeout tests and browser coverage for successful prices after global runtime replacement and explicit missing-runtime diagnostics.
+
 # 3.9.1
 - Require a confirmed selected EA league before opening Club, in both the interface and MAIN command boundary. Respect native Club locks and reject a stale club picker after its league changes.
 - Move rarity/event beside quality, place the full-width Item ID below league/club, and move rating limits below Item ID.

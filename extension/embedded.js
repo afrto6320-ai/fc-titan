@@ -1,8 +1,9 @@
-/* CODEX SNIPE v3.9.1 embedded interface; uses native EA services without exporting authentication tokens. */
+/* CODEX SNIPE v3.9.2 embedded interface; uses native EA services without exporting authentication tokens. */
 (() => {
   'use strict';
   if (window.__GPT_SNIPE_V3__) return;
   window.__GPT_SNIPE_V3__ = true;
+  const Extension=window.CodexExtensionClient;
   const Core = window.GPTSnipeCore;
   const Native = window.GPTNativeMarket;
   const Page = window.GPTPageClient;
@@ -31,7 +32,7 @@
   }
   function save(){
     const payload={presets:state.presets,logs:state.logs.slice(0,70),cache:state.cache.slice(0,80),selected:state.selected,selectedTargets:state.selectedTargets.slice(0,12),eventTargets:state.eventTargets.slice(0,15),language:state.language,panelLayout:state.panelLayout||null,introHidden:Boolean(state.introHidden),priceControlsOpen:Boolean(state.priceControlsOpen),settings:readSettingsSafe()};
-    try{chrome.storage.local.set({[STORAGE]:payload});}catch{}
+    try{void Extension.storageSet({[STORAGE]:payload}).catch(()=>{});}catch{}
   }
   function readSettingsSafe(){
     if(!shadow) return {};
@@ -43,9 +44,9 @@
   function updateNativeLabels(){for(const id of ['quality','position','nation','league','club','event']){const el=$('nativeLabel'+id.charAt(0).toUpperCase()+id.slice(1));if(el)el.textContent=input(id)||'— EA';}}
   function uiHTML(){return `
   <main id="shell" dir="${state.language==='ar'?'rtl':'ltr'}" lang="${state.language}" aria-label="CODEX SNIPE dashboard">
-    <header class="top"><div class="brand"><div class="mark" aria-hidden="true">◎</div><div><h1>CODEX <span>SNIPE</span></h1><small>ULTIMATE TEAM · EMBEDDED CONSOLE · v3.9.1</small></div></div>
+    <header class="top"><div class="brand"><div class="mark" aria-hidden="true">◎</div><div><h1>CODEX <span>SNIPE</span></h1><small>ULTIMATE TEAM · EMBEDDED CONSOLE · v3.9.2</small></div></div>
       <div class="head-actions"><label class="lang-label">${tr('language')} <select id="language"><option value="ar" ${state.language==='ar'?'selected':''}>العربية</option><option value="en" ${state.language==='en'?'selected':''}>English</option></select></label><span id="connection" class="pill warn">● EA WEB APP</span><span id="runBadge" class="pill">● STANDBY</span><button type="button" id="close" class="ghost">${tr('back')}</button></div></header>
-    <div class="intro"><div><div class="eyebrow">TRANSFER WORKSPACE / V3.9.1</div><h2>${tr('title')}</h2><p>${tr('subtitle')}</p></div><div class="hint">${tr('hint')}</div></div>
+    <div class="intro"><div><div class="eyebrow">TRANSFER WORKSPACE / V3.9.2</div><h2>${tr('title')}</h2><p>${tr('subtitle')}</p></div><div class="hint">${tr('hint')}</div></div>
     <div class="layout">
       <div class="column control">
         <details class="panel collapsible" open><summary class="panel-head"><h3><em>⌕</em> ${tr('players')}</h3><span class="tiny-tag">PLAYER FINDER</span></summary>
@@ -123,7 +124,7 @@
         <details class="panel collapsible" id="technicalPanel"><summary class="panel-head"><h3><em>▤</em> ${tr('diagnosticlogs')}</h3><span class="tiny-tag">TECHNICAL</span></summary><div class="panel-body"><div class="action-row"><button id="copyTechnical" class="secondary" type="button">${tr('copysys')}</button><button id="exportTechnical" class="ghost" type="button">${tr('txtsys')}</button></div><pre id="technicalLogs" class="technical-logs">${tr('empty')}</pre></div></details>
         <details class="panel collapsible"><summary class="panel-head"><h3><em>ⓘ</em> ${tr('datalink')}</h3><span class="tiny-tag">STATUS</span></summary><div class="panel-body"><p class="desc">${tr('datahelp')}</p><div id="dataHealth" class="native-status">${tr('empty')}</div></div></details>
       </div>
-    </div><footer class="footer"><span>CODEX SNIPE v3.9.1 · Unofficial · Independent</span><span>SEARCH • INSPECT • MONITOR</span></footer>
+    </div><footer class="footer"><span>CODEX SNIPE v3.9.2 · Unofficial · Independent</span><span>SEARCH • INSPECT • MONITOR</span></footer>
   </main>`;}
   function organizeWorkspace(){
     $('runDock')?.remove();state.dockObserver?.disconnect();
@@ -255,7 +256,7 @@
     portal=document.createElement('div');portal.id='gpts-v3-host';portal.setAttribute('aria-label','CODEX SNIPE app');
     portal.style.cssText='position:fixed;inset:0 0 0 90px;z-index:2147483000;display:none;min-width:0;';
     shadow=portal.attachShadow({mode:'open'});
-    const link=document.createElement('link');link.rel='stylesheet';link.href=chrome.runtime.getURL('embedded.css');shadow.appendChild(link);
+    const link=document.createElement('link');link.rel='stylesheet';link.href=Extension.getURL('embedded.css');shadow.appendChild(link);
     const app=document.createElement('div');app.innerHTML=uiHTML();while(app.firstChild)shadow.appendChild(app.firstChild);
     document.documentElement.appendChild(portal);
     organizeWorkspace();bindUI();refresh();renderLogs();
@@ -574,7 +575,7 @@
     renderPlayers(local, local.length?'نتائج محفوظة من بحث سابق — جاري تحديث الكتالوج…':'جاري البحث في كتالوج FUT.GG…');
     state.lastProvider='FUT.GG · جاري الاتصال';refresh();
     try{
-      const response=await chrome.runtime.sendMessage({type:'GPTS_SEARCH_FUTGG',payload:{query:term,page:1}});
+      const response=await Extension.request({type:'GPTS_SEARCH_FUTGG',payload:{query:term,page:1}});
       if(token!==state.pendingQuery)return;
       if(!response?.ok)throw Error(response?.error||'تعذر الاتصال بمصدر اللاعبين');
       const list=(response.result.items||[]).filter(p=>p&&p.name).map(p=>({...p,source:'futgg',searchQuery:term}));
@@ -793,8 +794,14 @@
     if(provider==='manual'){$('quoteBox').textContent='Max Buy Now · '+fmt(numeric('maxBin'))+' Coins';return null;}
     const id=Number(input('itemId'));if(!Number.isSafeInteger(id)||id<=0)throw Error('اختر إصدار EA محددًا أو أدخل EA Item ID لنسخة الكارت أولًا.');
     const platform=input('pricePlatform');$('quoteBox').textContent=provider.toUpperCase()+' …';
-    const reply=await chrome.runtime.sendMessage({type:'CODEX_GET_PRICES',payload:{provider,platform,ids:[id],force,baseIds:state.selected?.playerId?{[id]:state.selected.playerId}:{}}});
-    state.lastPriceStatus={provider,platform,itemId:id,at:new Date().toISOString(),ok:reply?.ok===true,status:reply?.status||null,code:reply?.code||null};
+    let reply;
+    try{reply=await Extension.request({type:'CODEX_GET_PRICES',payload:{provider,platform,ids:[id],force,baseIds:state.selected?.playerId?{[id]:state.selected.playerId}:{}}});}
+    catch(error){
+      state.lastPriceStatus={provider,platform,itemId:id,at:new Date().toISOString(),ok:false,stage:'extension-messaging',status:null,code:error.code||'RUNTIME_UNAVAILABLE'};
+      const explanation=state.language==='ar'?'الإضافة غير متصلة بخدمة الأسعار ('+state.lastPriceStatus.code+'). فعّل النسخة الجديدة وحدّث صفحة EA بالكامل بعد تحديث الإضافة. لم نستلم ردًا من موقع الأسعار.':error.message;
+      $('priceControls').open=true;$('quoteBox').textContent=explanation;throw Error(explanation);
+    }
+    state.lastPriceStatus={provider,platform,itemId:id,at:new Date().toISOString(),ok:reply?.ok===true,stage:'provider-response',status:reply?.status||null,code:reply?.code||null};
     if(!reply?.ok){$('priceControls').open=true;const explanation=reply?.status===400?provider.toUpperCase()+' رفض صيغة الطلب لهذه النسخة (HTTP 400). لا يوجد سعر مؤكد.':reply?.status===403?(provider==='futbin'?'Futbin رفض طلب الأسعار (HTTP 403). قد يكون تقييد وصول أو حماية آلية؛ فتح الموقع لا يضمن إتاحة الأسعار للإضافة. استخدم رابط المصدر للمراجعة، أو اختر FUT.GG أو السعر اليدوي بنفسك. لا يوجد سعر مؤكد.':'مصدر السعر رفض الوصول (HTTP 403). افتح موقع المصدر وراجع إتاحته؛ لا يوجد سعر مؤكد.'):reply?.status===429?'مصدر السعر طلب تقليل الطلبات (HTTP 429). حاول لاحقًا.':reply?.error||'Price provider unavailable.';$('quoteBox').textContent=explanation;throw Error(explanation);}
     const q=reply.result.quotes.find(x=>x.itemId===id&&x.provider===provider&&x.platform===platform);state.lastPriceStatus.quoteAvailable=Boolean(q);
     if(!q||!Number.isSafeInteger(q.price)||q.price<=0||!Number.isFinite(q.retrievedAt)||Date.now()-q.retrievedAt<0||Date.now()-q.retrievedAt>=90000)throw Error('لا يوجد سعر حديث لنفس النسخة والمنصة من المصدر المختار.');
@@ -945,7 +952,7 @@
     checks[checks.length-1].status=dialog()?'pass':'unknown';
     add('CAPTCHA/security challenge',!blocked(),'Session must stop if protection appears',false);
     const counters={pass:checks.filter(x=>x.status==='pass').length,fail:checks.filter(x=>x.status==='fail').length,unknown:checks.filter(x=>x.status==='unknown').length};
-    const report={kind:'CODEX_SNIPE_COMPATIBILITY',version:'3.9.1',at:new Date().toISOString(),page:location.pathname,marketViewDetected:hasMarket,searchButtonDetected:hasSearch,counts:counters,checks,nativeFunctions:state.pageMode?state.pageSnapshot:null};
+    const report={kind:'CODEX_SNIPE_COMPATIBILITY',version:'3.9.2',at:new Date().toISOString(),page:location.pathname,marketViewDetected:hasMarket,searchButtonDetected:hasSearch,counts:counters,checks,nativeFunctions:state.pageMode?state.pageSnapshot:null};
     state.lastAudit=report;
     state.auditLog.unshift({at:report.at,summary:`Pass ${counters.pass}, Fail ${counters.fail}, Need view ${counters.unknown}`,marketView:hasMarket});
     state.auditLog=state.auditLog.slice(0,60);
@@ -959,7 +966,7 @@
   }
   function technicalAsText(){
     const lines=state.auditLog.map(x=>`[${x.at}] ${x.summary} | marketView=${x.marketView}`);
-    return ['CODEX SNIPE TECHNICAL LOG',...lines,'','Last native option audit:',JSON.stringify(state.lastPickerAudit||null),'','Clock diagnostics:',JSON.stringify({fallback:state.clockFallback===true,tradeHelper:typeof window.CodexTradeCore?.pace,rotor:state.rotorAnimation?.playState||null}),'','Last prepared SDK query:',JSON.stringify(state.searchPlan||null),'','Last bid ladder:',JSON.stringify(state.lastBidCycle||null),'','Last price-provider status:',JSON.stringify(state.lastPriceStatus||null),'','Last confirmed market response:',JSON.stringify(state.lastMarket?{searchId:state.lastMarket.searchId,requested:state.lastMarket.requested,count:state.lastMarket.count,pages:state.lastMarket.pages,receivedAt:state.lastMarket.receivedAt,localCacheCleared:state.lastMarket.localCacheCleared,freshEvent:state.lastMarket.freshEvent,identicalToPrevious:state.lastMarket.identicalToPrevious,transport:state.lastMarket.transport,nativePrices:state.lastMarket.nativePrices,sdkStatus:state.lastMarket.sdkStatus,newTrades:state.lastMarket.newTrades}:null),'','Recent application events:',...state.logs.slice(0,40).map(x=>`[${x.at}] ${x.level} ${x.message}`)].join('\n');
+    return ['CODEX SNIPE TECHNICAL LOG',...lines,'','Last native option audit:',JSON.stringify(state.lastPickerAudit||null),'','Extension runtime:',JSON.stringify({uiVersion:'3.9.2',...Extension?.status(),helpers:{trade:typeof window.CodexTradeCore?.pace,prices:typeof window.CodexPrices?.cap,native:typeof window.GPTPageClient?.request}}),'','Clock diagnostics:',JSON.stringify({fallback:state.clockFallback===true,tradeHelper:typeof window.CodexTradeCore?.pace,rotor:state.rotorAnimation?.playState||null}),'','Last prepared SDK query:',JSON.stringify(state.searchPlan||null),'','Last bid ladder:',JSON.stringify(state.lastBidCycle||null),'','Last price-provider status:',JSON.stringify(state.lastPriceStatus||null),'','Last confirmed market response:',JSON.stringify(state.lastMarket?{searchId:state.lastMarket.searchId,requested:state.lastMarket.requested,count:state.lastMarket.count,pages:state.lastMarket.pages,receivedAt:state.lastMarket.receivedAt,localCacheCleared:state.lastMarket.localCacheCleared,freshEvent:state.lastMarket.freshEvent,identicalToPrevious:state.lastMarket.identicalToPrevious,transport:state.lastMarket.transport,nativePrices:state.lastMarket.nativePrices,sdkStatus:state.lastMarket.sdkStatus,newTrades:state.lastMarket.newTrades}:null),'','Recent application events:',...state.logs.slice(0,40).map(x=>`[${x.at}] ${x.level} ${x.message}`)].join('\n');
   }
   function renderDiagnostics(){
     const a=state.lastAudit;if(!a)return;
@@ -1355,14 +1362,14 @@
     if(!Core)console.warn('[CODEX SNIPE] missing engine core');
     if(!document.getElementById('gpts-v3-nav-style')){navStyle.id='gpts-v3-nav-style';document.head?.appendChild(navStyle);}
     createPortal();
-    try{const stored=await chrome.storage.local.get(STORAGE);const config=stored[STORAGE]||{};state.presets=config.presets||{};state.cache=config.cache||[];state.logs=config.logs||[];state.selected=config.selected||null;state.selectedTargets=Array.isArray(config.selectedTargets)?config.selectedTargets:[];state.eventTargets=Array.isArray(config.eventTargets)?config.eventTargets:[];
+    try{const stored=await Extension.storageGet(STORAGE);const config=stored[STORAGE]||{};state.presets=config.presets||{};state.cache=config.cache||[];state.logs=config.logs||[];state.selected=config.selected||null;state.selectedTargets=Array.isArray(config.selectedTargets)?config.selectedTargets:[];state.eventTargets=Array.isArray(config.eventTargets)?config.eventTargets:[];
       if(config.language==='en')setLanguage('en');
       state.priceControlsOpen=Boolean(config.priceControlsOpen);$('priceControls').open=state.priceControlsOpen;state.introHidden=Boolean(config.introHidden);applyIntroVisibility();state.panelLayout=config.panelLayout||null;restorePanelLayout();fillSettings(config.settings||{});populatePresets();updateSpeedControls();renderLogs();renderTargets();renderEvents();updateDatalists();}
     catch(e){addLog('تعذر قراءة الإعدادات المحلية: '+e.message,'warning');}
     updateSpeedControls();observeNav();refresh();timer=setInterval(refresh,200);
     const animate=()=>{if(state.open&&(state.running||state.scanning))paintSpeedGauge(state.nextIntervalMs);requestAnimationFrame(animate);};requestAnimationFrame(animate);
     window.addEventListener('pagehide',()=>{if(state.running)stop('صفحة EA اتقفلت أو اتحدثت');});
-    addLog('واجهة CODEX SNIPE v3.9.1 جاهزة — بانتظار اكتشاف قائمة EA.');
+    addLog('واجهة CODEX SNIPE v3.9.2 جاهزة — بانتظار اكتشاف قائمة EA.');
   }
   if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',init,{once:true});else init();
 })();

@@ -61,7 +61,7 @@ with sync_playwright() as p:
     stored={'gpts_embedded_v3':{'selected':stale,'selectedTargets':[stale],'settings':{'player':'Mohamed Salah','itemId':'50540979','searchRoute':'screen','bidLadder':'off'}}}
     shim='window.chrome={runtime:{getURL:()=>'+json.dumps(css)+',sendMessage:async()=>{throw Error("Unexpected external catalogue request")}},storage:{local:{get:async()=>('+json.dumps(stored)+'),set:async()=>{}}}};'
     shim+='window.__playedTones=0;const originalOscillator=AudioContext.prototype.createOscillator;AudioContext.prototype.createOscillator=function(){window.__playedTones++;return originalOscillator.call(this);};'
-    scripts=['price-providers.js','snipe-core.js','trade-core.js','ea-options.js','ea-page-client.js','native-market.js','embedded.js']
+    scripts=['extension-client.js','price-providers.js','snipe-core.js','trade-core.js','ea-options.js','ea-page-client.js','native-market.js','embedded.js']
     loaded=cdp.send('Runtime.evaluate',{'contextId':world,'expression':shim+'\n'+'\n'.join((ROOT/name).read_text() for name in scripts)})
     assert 'exceptionDetails' not in loaded,loaded
     def request(command,args=None):

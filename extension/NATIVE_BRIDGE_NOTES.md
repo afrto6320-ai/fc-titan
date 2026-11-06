@@ -1,3 +1,15 @@
+# v3.9.2 extension runtime price transport
+
+Uploaded diagnostics show undefined `chrome.runtime.sendMessage`, null last provider status, an undefined isolated trade helper and a 3.9.0 UI. These support an extension loading/context problem before provider transport; they do not prove a new Futbin/FUT.GG HTTP denial. The SDK market replies in the same log include status 200 and repeated real Trade IDs; they do not prove purchases or a server-cache bypass.
+
+A new ISOLATED-only client captures runtime/storage objects at initialization. It survives replacement of the global runtime property while the captured object remains valid, but does not claim to repair an invalidated Chrome context. Fixed message types, bounded response waits and separate missing-context/invalidated-context/worker errors preserve provider HTTP replies without retries. The UI records failure stage, versions and helper presence; there is no standalone provider fetch fallback from the EA page and no session export.
+
+Node fixtures validate context replacement, invalidation, missing receivers, no response, timeout and a distinct provider 403. Chromium tests exercise the actual UI with a successful same-edition provider reply after global runtime replacement, then a missing API, visible reload guidance and exported failure-stage diagnostics. Existing native world/SDK/purchase tests remain in use. A separate attempt to load the unpacked extension in the provided headless Chromium produced neither an extension service worker nor injected host; it supplies no installed-extension validation. Live provider domains remain excluded by the enforced runtime policy, so provider reachability remains unverified.
+
+The tool comparison is a static review of supplied files, including a safely extracted RAR. Vendor code and user logs remain outside the repository and were not executed. CODEX engine/purchase timing was not changed in this patch.
+
+---
+
 # v3.9.1 dependent clubs and price disclosure
 
 Club options now reject missing/Any league before reading the native option collection. The selector's enabled state includes native EA interaction locks and the league requirement. A club picker token binds the current native league ID and rejects selection after a league change, even if the old collection happens to contain the same rows. Native league changes remain responsible for resetting dependent clubs; the returned snapshot updates the interface. No additional invented club catalogue or cross-league union is introduced.
