@@ -37,6 +37,7 @@ def extract_method(name,text=source,owner='UTMarketSearchFiltersViewController')
 contracts='\n'.join(extract_method(name) for name in methods)
 contracts+='\n'+extract_method('bid',(SOURCE/'compiled_2.js').read_text(),'UTItemActionController')
 contracts+='\n'+extract_method('move',(SOURCE/'compiled_2.js').read_text(),'UTItemActionController')
+contracts+='\n'+extract_method('eMaxBuyPriceChanged',source,'UTMarketSearchFiltersView')
 prefix=(ROOT/'tests/fixture33.html').read_text().split('<script>')[0]
 html=prefix+'<script>'+(ROOT/'tests/ea_harness.js').read_text()+'\n'+contracts+'</script></body></html>'
 URL='https://www.ea.com/ea-sports-fc/ultimate-team/web-app/'
@@ -57,7 +58,7 @@ with sync_playwright() as p:
     world=cdp.send('Page.createIsolatedWorld',{'frameId':frame,'worldName':'gpts-test-extension'})['executionContextId']
     css='data:text/css;base64,'+base64.b64encode((ROOT/'embedded.css').read_bytes()).decode()
     stale={'name':'Mohamed Salah','rating':88,'itemId':50540979,'playerId':None,'source':'futgg','key':'item:50540979'}
-    stored={'gpts_embedded_v3':{'selected':stale,'selectedTargets':[stale],'settings':{'player':'Mohamed Salah','itemId':'50540979'}}}
+    stored={'gpts_embedded_v3':{'selected':stale,'selectedTargets':[stale],'settings':{'player':'Mohamed Salah','itemId':'50540979','searchRoute':'screen','bidLadder':'off'}}}
     shim='window.chrome={runtime:{getURL:()=>'+json.dumps(css)+',sendMessage:async()=>{throw Error("Unexpected external catalogue request")}},storage:{local:{get:async()=>('+json.dumps(stored)+'),set:async()=>{}}}};'
     shim+='window.__playedTones=0;const originalOscillator=AudioContext.prototype.createOscillator;AudioContext.prototype.createOscillator=function(){window.__playedTones++;return originalOscillator.call(this);};'
     scripts=['price-providers.js','snipe-core.js','trade-core.js','ea-options.js','ea-page-client.js','native-market.js','embedded.js']
@@ -324,6 +325,9 @@ with sync_playwright() as p:
     assert 'market-full' not in sh.locator('#marketPanel').get_attribute('class')
     sh.locator('#marketFull').click()
     assert 'market-full' in sh.locator('#marketPanel').get_attribute('class')
+    dock=sh.locator('#runDock').bounding_box();market=sh.locator('#marketPanel').bounding_box()
+    assert market['y']+market['height']<=dock['y'] and sh.locator('#dockScan').is_visible()
+    assert sh.locator('#start').evaluate('(e)=>e.getRootNode().elementFromPoint(e.getBoundingClientRect().x+10,e.getBoundingClientRect().y+10)===e')
     assert sh.locator('.market-card').first.locator('.market-portrait img').count()==1
     assert sh.locator('.market-card[data-trade-id="page-trade-20"]').count()==1
     page.screenshot(path='/tmp/CODEX_SNIPE_v3.7.0_market_full.png')
@@ -477,24 +481,27 @@ with sync_playwright() as p:
     sh.locator('#maxBuys').fill('1');sh.locator('#maxSearches').fill('1');sh.locator('#budget').fill('10000')
 
     # Ladder sends six distinct bid constraints while preserving the purchase ceiling and native filters.
+    sh.locator('#searchRoute').select_option('sdk')
     sh.locator('#autoBuy').uncheck();sh.locator('#maxBin').fill('1500');sh.locator('#bidLadderCeiling').fill('1900');sh.locator('#bidLadder').select_option('max')
-    page.evaluate('window.__testItems=[];window.__sentMaxBids=[];window.__sentMinBids=[]')
+    page.evaluate('window.__testItems=[];window.__sdkCalls=[]')
     for _ in range(6):
         sh.locator('#scanMarket').click()
         page.wait_for_function("()=>!document.querySelector('#gpts-v3-host').shadowRoot.querySelector('#resultsCount').disabled")
-    assert page.evaluate('__sentMaxBids')==[1500,1600,1700,1800,1900,0]
-    assert page.evaluate('__sentMinBids')==[0]*6 and page.evaluate('__nativeMaxBin')==1500
+    assert page.evaluate('__sdkCalls.map(x=>x.maxBid)')==[1500,1600,1700,1800,1900,0]
+    assert page.evaluate('__sdkCalls.map(x=>x.minBid)')==[0]*6 and page.evaluate('__sdkCalls.every(x=>x.maxBuy===1500)')
     assert sh.locator('#maxBid').input_value()==''
     sh.locator('#bidLadder').select_option('off');sh.locator('#scanMarket').click()
     page.wait_for_function("()=>!document.querySelector('#gpts-v3-host').shadowRoot.querySelector('#resultsCount').disabled")
-    assert page.evaluate('__sentMaxBids.at(-1)')==0
-    sh.locator('#bidLadderCeiling').fill('200000');sh.locator('#bidLadder').select_option('max');page.evaluate('window.__sentMaxBids=[]')
+    assert page.evaluate('__sdkCalls.at(-1).maxBid')==0
+    sh.locator('#bidLadderCeiling').fill('200000');sh.locator('#bidLadder').select_option('max');page.evaluate('window.__sdkCalls=[]')
     for _ in range(7):
         sh.locator('#scanMarket').click();page.wait_for_function("()=>!document.querySelector('#gpts-v3-host').shadowRoot.querySelector('#resultsCount').disabled")
-    assert page.evaluate('__sentMaxBids')==[1500,1600,1700,1800,1900,2000,2100]
+    assert page.evaluate('__sdkCalls.map(x=>x.maxBid)')==[1500,1600,1700,1800,1900,2000,2100]
     sh.locator('#bidLadder').select_option('off')
     print('PASS: short and 200k native Max Bid ladders, no premature wrap, fixed Min Bid and Buy Now ceiling, reversible fixed-bid mode')
 
+    sh.locator('#searchRoute').select_option('screen')
+    sh.locator('#sync').click();page.wait_for_function('__nativeMaxBin===1500')
     # A layout wrapper may change while the actual native results controller stays the same.
     page.evaluate("resetTrade('same-inner-controller');window.__testDelay=350")
     sh.locator('#scanMarket').click()
@@ -564,6 +571,139 @@ with sync_playwright() as p:
     page.wait_for_function("()=>document.querySelector('#gpts-v3-host').shadowRoot.querySelector('#shell').scrollTop<5")
     page.screenshot(path='/tmp/CODEX_SNIPE_v3.8.0_compact.png')
     print('PASS: intro toggle reclaims space, header filter save/load restores native IDs/player/prices, card position sits under rating, floating Top scrolls the dashboard')
+
+    # Clicking the same native picker closes its choices without changing the selected filter.
+    sh.locator('#shell').evaluate('(e)=>e.scrollTop=0')
+    dock_top=sh.locator('#start').bounding_box()['y']
+    sh.locator('#shell').evaluate('(e)=>e.scrollTop=e.scrollHeight')
+    page.wait_for_timeout(80)
+    assert abs(sh.locator('#start').bounding_box()['y']-dock_top)<1
+    assert sh.locator('#stop').is_visible() and sh.locator('#dockScan').is_visible()
+    sh.locator('#language').select_option('en')
+    assert sh.locator('#runDock').count()==1 and sh.locator('#start').count()==1 and sh.locator('#dockScan').inner_text()=='Scan market'
+    sh.locator('#language').select_option('ar')
+    page.set_viewport_size({'width':600,'height':800})
+    page.wait_for_timeout(80)
+    for action in ['start','stop','savePreset','dockScan']:
+      rect=sh.locator('#'+action).bounding_box()
+      assert rect['x']>=0 and rect['y']>=0 and rect['x']+rect['width']<=600 and rect['y']+rect['height']<=800
+    page.set_viewport_size({'width':1500,'height':1000})
+    print('PASS: persistent dock retains visible Start/Stop/Scan on shell scroll and full results, fits small screens, and rebuilds once across language changes')
+
+    sh.locator('[data-native-picker="position"]').click();sh.locator('.native-option').first.wait_for()
+    field=sh.locator('[data-native-picker="position"]').bounding_box();menu=sh.locator('#nativePickerArea').bounding_box()
+    assert abs(menu['x']-field['x'])<2 and abs(menu['width']-field['width'])<2
+    assert abs(menu['y']-(field['y']+field['height']+5))<2 or abs(menu['y']+menu['height']+5-field['y'])<2
+    one=sh.locator('.native-option').nth(0).bounding_box();two=sh.locator('.native-option').nth(1).bounding_box()
+    assert abs(one['x']-two['x'])<1 and two['y']>=one['y']+one['height']
+    unchanged=sh.locator('#transferSection').bounding_box()['height']
+    page.screenshot(path='/tmp/CODEX_SNIPE_v3.9.0_anchored_filters.png')
+    before=request('readFilters')['result']['criteriaKey']
+    sh.locator('[data-native-picker="position"]').click()
+    assert sh.locator('#nativePickerArea').is_hidden() and sh.locator('[data-native-picker="position"]').get_attribute('aria-expanded')=='false'
+    assert abs(sh.locator('#transferSection').bounding_box()['height']-unchanged)<1
+    assert request('readFilters')['result']['criteriaKey']==before
+    sh.locator('[data-native-picker="position"]').click();sh.locator('.native-option').first.wait_for()
+    sh.locator('.native-option-filter').focus();page.keyboard.press('Escape')
+    assert sh.locator('#nativePickerArea').is_hidden()
+    sh.locator('[data-native-picker="position"]').click();sh.locator('.native-option').filter(has_text='RW').click()
+    sh.locator('#nativePickerArea').wait_for(state='hidden')
+    assert sh.locator('#nativePickerArea').is_hidden()
+    print('PASS: native filter choices toggle closed on a second click and after selection, preserving original IDs')
+
+    # Reproduce the native view's Max Bid / Max Buy Now linkage using its original source method.
+    request('connect')
+    page.evaluate("""(() => {
+      const c=__nav.currentController,v=c.getView();window.__realPriceView=v;
+      window.__oldMaxBuySetter=v.setMaxBuyNowPrice;window.__oldMaxBidSetter=v.setMaxBidPrice;
+      v.setMaxBidPrice=value=>{window.__oldMaxBidSetter(value);c.eMaxBidPriceChanged(null,null,{value});};
+      v.setMaxBuyNowPrice=function(value){
+        window.__oldMaxBuySetter(value);this._maxBidPriceRow={value:c.viewmodel.searchCriteria.maxBid};this._minBuyNowPriceRow={value:c.viewmodel.searchCriteria.minBuy};this._maxBuyNowPriceRow={value};this._clearBuyPrice={setInteractionState:()=>{}};
+        this._triggerActions=(_event,data)=>c.eMaxBuyPriceChanged(null,null,data);
+        UTMarketSearchFiltersView.prototype.eMaxBuyPriceChanged.call(this,null,null,{delta:0});
+      };
+    })()""")
+    linked=request('applyPrices',{'minBid':0,'maxBid':200000,'minBin':0,'maxBin':7000})
+    assert linked['code']=='PRICE_MISMATCH'
+    assert request('readFilters')['result']['prices']['maxBid']==6900
+    print('PASS: original EA view coupling reduces Max Bid 200000 to 6900 at Buy Now 7000; final validation rejects the silent rewrite')
+
+    # SDK query clones native category filters and holds independent bid/BIN values while the native screen remains unchanged.
+    sh.locator('#searchRoute').select_option('sdk');sh.locator('#bidLadder').select_option('max');sh.locator('#bidLadderCeiling').fill('200000');sh.locator('#maxBin').fill('7000')
+    page.evaluate("window.__testItems=[];window.__testPages=undefined;window.__sdkCalls=[];window.__testDelay=150")
+    for _ in range(3):
+      sh.locator('#scanMarket').click();page.wait_for_function("()=>!document.querySelector('#gpts-v3-host').shadowRoot.querySelector('#resultsCount').disabled")
+    assert page.evaluate('__sdkCalls.map(x=>x.maxBid)')==[7000,7100,7200]
+    assert page.evaluate('__sdkCalls.every(x=>x.maxBuy===7000)')
+    assert request('readFilters')['result']['prices']['maxBid']==6900
+    assert page.evaluate('__nav.currentController instanceof UTMarketSearchFiltersViewController')
+    assert 'EA SDK' in sh.locator('#marketResponse').inner_text()
+    assert page.evaluate('__sdkMaxInFlight')==1
+    print('PASS: SDK route sends increasing Max Bid with fixed Max Buy Now, bypasses view-field coupling, keeps the native screen stable and serializes requests')
+
+    # Real same-auction repeats remain visible and are labelled by Trade ID comparison, not random substitutions.
+    page.evaluate("resetTrade('sdk-same-offer')")
+    sh.locator('#scanMarket').click();page.wait_for_function("()=>!document.querySelector('#gpts-v3-host').shadowRoot.querySelector('#resultsCount').disabled")
+    sh.locator('#scanMarket').click();page.wait_for_function("()=>!document.querySelector('#gpts-v3-host').shadowRoot.querySelector('#resultsCount').disabled")
+    assert sh.locator('.market-card').count()==1 and sh.locator('.market-card').first.get_attribute('data-trade-id')=='sdk-same-offer'
+    assert 'نفس العروض' in sh.locator('#marketResponse').inner_text() and 'أرقام جديدة مقارنة بآخر رد: 0' in sh.locator('#marketResponse').inner_text()
+    page.evaluate('window.__testItems=[]');sh.locator('#scanMarket').click();page.wait_for_function("()=>!document.querySelector('#gpts-v3-host').shadowRoot.querySelector('#resultsCount').disabled")
+    assert sh.locator('.market-card').count()==0 and sh.locator('#lowestPriceValue').inner_text()=='—'
+    page.evaluate('window.__sdkError=429');before=page.evaluate('__sdkCalls.length')
+    sh.locator('#scanMarket').click();sh.locator('#scanMarket').click()
+    page.wait_for_function("()=>!document.querySelector('#gpts-v3-host').shadowRoot.querySelector('#resultsCount').disabled")
+    assert '429' in sh.locator('#marketResponse').inner_text() and page.evaluate('__sdkCalls.length')==before+1
+    page.evaluate('window.__sdkError=0')
+    print('PASS: SDK repeated/empty responses are truthful, minimum clears, HTTP-style 429 stops the queued refresh without retrying')
+
+    # SDK pagination deduplicates native sentinels and cancellation never exposes a partial batch.
+    page.evaluate("""(() => {
+      const source=resetTrade('sdk-page-template');const rows=Array.from({length:45},(_,i)=>({...source,id:300000+i,getAuctionData:()=>({tradeId:'sdk-page-'+i,buyNowPrice:900+i})}));
+      window.__testPages=[rows.slice(0,21),rows.slice(20,41),rows.slice(40)];window.__sdkCalls=[];window.__testDelay=150;
+    })()""")
+    sh.locator('#resultsCount').fill('37');sh.locator('#scanMarket').click()
+    page.wait_for_function("()=>!document.querySelector('#gpts-v3-host').shadowRoot.querySelector('#resultsCount').disabled")
+    assert sh.locator('.market-card').count()==37 and sh.locator('.market-card[data-trade-id="sdk-page-20"]').count()==1
+    assert page.evaluate('__sdkCalls.map(x=>[x.page,x.count,x.offset])')==[[1,21,0],[2,21,20]]
+    assert sh.locator('#lowestPriceValue').inner_text()=='900 Coins'
+    page.evaluate('window.__testDelay=350;window.__sdkCalls=[]')
+    sh.locator('#resultsCount').fill('100');sh.locator('#scanMarket').click();page.wait_for_function('__sdkCalls.length===2');sh.locator('#stop').click()
+    page.wait_for_timeout(450)
+    assert page.evaluate('__sdkCalls.length')==2 and sh.locator('.market-card').count()==0
+    assert page.evaluate('__testObservers.size')==0
+    page.evaluate('window.__testPages=undefined;window.__testDelay=50');sh.locator('#resultsCount').fill('20')
+    print('PASS: SDK pagination preserves count/offset, deduplicates sentinels, computes the minimum, and Stop discards partial results')
+
+    sh.locator('#maxBin').fill('1000');sh.locator('#bidLadder').select_option('max');sh.locator('#autoBuy').check();sh.locator('#maxBuys').fill('1');sh.locator('#maxSearches').fill('1')
+    page.evaluate("resetTrade('sdk-gui-buy');window.__bidScenario='won'")
+    before=page.evaluate('__bidCalls');sh.locator('#start').click()
+    page.wait_for_function("()=>{const s=document.querySelector('#gpts-v3-host').shadowRoot;return s.querySelector('#buyCount').textContent==='1'&&!s.querySelector('#start').disabled;}")
+    assert page.evaluate('__bidCalls')==before+1 and sh.locator('#spent').inner_text()=='900'
+    assert page.evaluate('__nav.currentController instanceof UTMarketSearchFiltersViewController')
+    assert page.evaluate('__sdkCalls.at(-1).maxBuy')==1000 and page.evaluate('__lastBidPrice')==900
+    assert 'EA SDK DIRECT CONNECTED' in sh.locator('#connection').inner_text()
+    sh.locator('#autoBuy').uncheck()
+    print('PASS: full UI Auto Buy uses SDK directly with view linkage active, original native item, actual Buy Now price, confirmed counters and no results-controller navigation')
+
+    # SDK plan integrity and the purchase guard operate on the real native item object without a results-view controller.
+    sh.locator('#maxBin').fill('1000');sh.locator('#bidLadder').select_option('off')
+    snap=request('connect')['result']['snapshot']
+    plan=request('prepareSearch',{'criteriaKey':snap['criteriaKey'],'prices':{'minBid':0,'maxBid':200000,'minBin':0,'maxBin':1000}})['result']
+    assert request('search',{'route':'sdk','planId':-1,'maxBin':1000,'criteriaKey':snap['criteriaKey']})['code']=='STALE_PLAN'
+    session_id=request('beginSession',{'route':'sdk','planId':plan['planId'],'criteriaKey':snap['criteriaKey'],'maxPrice':1000,'maxSpend':1500,'maxBuys':2,'autoBuy':True})['result']['sessionId']
+    page.evaluate("resetTrade('sdk-native-buy');window.__bidScenario='won'")
+    result=request('search',{'route':'sdk','planId':plan['planId'],'maxBin':1000,'criteriaKey':snap['criteriaKey'],'limit':5})['result']
+    calls=page.evaluate('__bidCalls')
+    bought=request('buy',{'sessionId':session_id,'searchId':result['searchId'],'tradeId':'sdk-native-buy','instanceId':'123456','expectedPrice':900})
+    assert bought['result']['status']=='bought' and bought['result']['spent']==900 and page.evaluate('__bidCalls')==calls+1
+    assert page.evaluate('__lastBidItem===__testItems[0]') and page.evaluate('__nav.currentController instanceof UTMarketSearchFiltersViewController')
+    page.evaluate("resetTrade('sdk-budget-second')")
+    result=request('search',{'route':'sdk','planId':plan['planId'],'maxBin':1000,'criteriaKey':snap['criteriaKey'],'limit':5})['result']
+    assert request('buy',{'sessionId':session_id,'searchId':result['searchId'],'tradeId':'sdk-budget-second','instanceId':'123456','expectedPrice':900})['code']=='LIMIT'
+    request('cancel')
+    page.evaluate('window.__realPriceView.setMaxBuyNowPrice=window.__oldMaxBuySetter;window.__realPriceView.setMaxBidPrice=window.__oldMaxBidSetter;')
+    sh.locator('#searchRoute').select_option('screen')
+    print('PASS: SDK plan/identity validation, original native bid object, confirmed receipt and unchanged shared budget enforcement')
 
     # A successful transport with no isWon state is uncertain, not a completed purchase.
     page.evaluate("resetTrade('uncertain-buy');window.__bidScenario='pending'")

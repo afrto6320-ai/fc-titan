@@ -1,3 +1,12 @@
+# 3.9.0
+- Default to MAIN-world `services.Item.searchTransferMarket` using a cloned native DTO, keeping original category/player/rarity filters and independent bid/BIN prices. Retain the native screen route as an explicit option.
+- Correct the previous ladder assumption: the original EA view links Max Bid to Max Buy Now. Validate all final screen prices together to detect later field rewrites; use prepared SDK plans for independent ladder values.
+- Preserve serialized pagination, original item objects, Stop/cancel behavior, exact identity checks, confirmed purchase receipts and one shared session budget across targets in the SDK route.
+- Disclose transport, prepared SDK prices, native status, request duration, additional-page availability and new Trade IDs relative to the previous matching response. Keep real repeated auctions visible and clear empty/failed results.
+- Replace the detached option grid with an anchored vertical, searchable filter menu; close on repeat click, selection, outside interaction or Escape without resetting the selected value.
+- Keep Start/Stop/Save/Scan in a persistent bottom bar, including full-page results; adapt its spacing on small screens and language changes.
+- Extend source-derived browser regressions for view price coupling, direct SDK queries/pagination/purchase/cancellation, unchanged repeats/empty responses/429, menu geometry and persistent controls. Tests use synthetic transport; live EA execution and server freshness remain unverified.
+
 # 3.8.0
 - Add optional default-on Max Bid ladder: start at or above the effective Buy Now ceiling, advance native price ticks, continue to a user-selected ceiling (default 200k, maximum 15m), then run one uncapped bid query and restart. Preserve configured bid fields, fixed Min Bid, purchase limits and per-target counters.
 - Fix browser helper exports in CommonJS-shaped contexts. Remove the frozen legacy clock path; use independent monotonic clock calculation and Web Animations/CSS activity even when the helper is missing.

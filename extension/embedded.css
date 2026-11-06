@@ -203,3 +203,21 @@ hr{height:1px;border:0;background:#273742;margin:14px 0}
 .scroll-top{position:fixed;bottom:20px;right:20px;z-index:45;box-shadow:0 6px 22px #0005;border-color:#6e8c59;color:#d9f5be}
 #bidCycleStatus{border-inline-start:2px solid #85b865;padding:9px 12px;background:#192c2466;line-height:1.8}
 #shell>.top{position:relative;z-index:2}.top .primary{padding:10px 14px}
+/* 3.9 anchored vertical selectors and persistent session actions. */
+#nativePickerArea{position:fixed;z-index:80;display:flex;flex-direction:column;gap:0;padding:8px;border:1px solid #698178;background:#172833;border-radius:10px;box-shadow:0 16px 42px #0008;overflow:auto;scrollbar-width:thin;direction:inherit}
+#nativePickerArea>span,#nativePickerArea .native-source,#nativePickerArea .native-image-status,#nativePickerArea .picker-ready{display:none}
+#nativePickerArea .picker-status{margin:0;padding:9px;border:0;background:transparent;line-height:1.5}
+#nativePickerArea .native-picker-results{display:flex;flex-direction:column;gap:7px;margin:0;padding:0;border:0;max-height:none;overflow:visible}
+#nativePickerArea .native-option-filter{height:34px;width:100%;flex-shrink:0;margin:0}
+#nativePickerArea .native-option-grid{display:flex;flex-direction:column;gap:3px;max-height:calc(var(--picker-height,330px) - 60px);overflow:auto;padding:0;min-height:0}
+#nativePickerArea .native-option{min-height:43px;flex-shrink:0;width:100%;border:0;border-radius:6px;padding:7px 9px;background:transparent;text-align:start}
+#nativePickerArea .native-option:hover{background:#2a4445;outline:1px solid #719270;outline-offset:-1px}
+#nativePickerArea .native-option img{width:27px;height:27px;flex-basis:27px}
+#nativePickerArea .native-option-group{flex-shrink:0;width:100%;margin:0;background:#1b3038;border-radius:7px}
+#nativePickerArea .native-option-group>summary{min-height:43px;padding:8px}
+#nativePickerArea .native-unresolved-toggle{font-size:10px;margin:0;padding:5px}
+.run-dock{position:absolute;bottom:12px;inset-inline:18px;z-index:60;display:flex;align-items:center;justify-content:space-between;gap:18px;padding:12px 16px;border:1px solid #5e7956;border-radius:14px;background:linear-gradient(110deg,#132a29f5,#15232cf5);backdrop-filter:blur(14px);box-shadow:0 8px 32px #0007;color:#d4e8d1}
+.dock-summary{display:flex;flex-direction:column;gap:5px;min-width:0}.dock-summary>b{font-size:12px;letter-spacing:1px;color:#c3f18a}.dock-summary>span{font-size:11px;color:#a7c0ba;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;max-width:400px}
+.run-dock .dock-actions{margin:0;display:flex;flex-wrap:wrap;align-items:center;gap:8px}.run-dock button{min-width:90px;padding:10px 15px}.run-dock #stop{min-width:90px}.run-dock #dockScan{min-width:90px}
+#shell{padding-bottom:calc(var(--run-dock-height,78px) + 28px)}.market-panel.market-full{bottom:calc(var(--run-dock-height,78px) + 24px)}.scroll-top{bottom:calc(var(--run-dock-height,78px) + 28px)}.toast-stack{bottom:calc(var(--run-dock-height,78px) + 30px)}
+@media(max-width:760px){.run-dock{inset-inline:10px;bottom:8px;padding:9px 10px;gap:8px}.dock-summary{display:none}.run-dock .dock-actions{justify-content:center;width:100%}.run-dock button{padding:9px 11px;min-width:75px;flex:1}.run-dock #savePreset{font-size:10px;min-width:85px}.run-dock #stop,.run-dock #dockScan{min-width:75px}}

@@ -12,7 +12,7 @@ window.HttpStatusCode={RATE_LIMIT:429};window.UtasErrorCode={NO_TRADE_EXISTS:460
 window.UINotificationType={NEGATIVE:'negative',NEUTRAL:'neutral'};
 window.__bidCalls=0;window.__bidScenario='won';window.__bidDelay=30;
 window.UTItemActionController=class UTItemActionController {};
-window.UTSearchCriteriaDTO=class UTSearchCriteriaDTO {constructor(){this.offset=0;this.count=20;}};
+window.UTSearchCriteriaDTO=class UTSearchCriteriaDTO {constructor(){this.offset=0;this.count=20;}update(other){Object.assign(this,other);}};
 window.UTServerSettingsRepository={KEY:{PLATFORM_SPLIT_FOR_TRANSFER_MARKET:'split'}};
 window.JSUtils={isValid:x=>x!==null&&x!==undefined,isObject:x=>x!==null&&typeof x==='object'};
 window.isPhone=()=>false;
@@ -136,3 +136,14 @@ window.__root={getPresentedViewController:()=>window.__testLogin?null:__tabs,
 window.getAppMain=()=>({getRootViewController:()=>__root,getNetworkErrorController:()=>({checkCriticalStatus:()=>false,handleStatus:()=>{}})});
 
 window.__moveCalls=0;window.services.Item.move=(item,pile)=>{window.__moveCalls++;window.__lastMovePile=pile;const out=new Observable();setTimeout(()=>out.notify(window.__moveFailed?{success:false,status:400}:{success:true,data:{itemIds:[Number(item.id)]}}),20);return out;};
+
+// Native SDK read response contract used by UTMarketSearchResultsViewController._requestItems.
+window.services.Item.searchTransferMarket=(criteria,page)=>{
+ window.__sdkCalls=(window.__sdkCalls||[]);window.__sdkCalls.push({page,count:criteria.count,offset:criteria.offset,minBid:criteria.minBid,maxBid:criteria.maxBid,minBuy:criteria.minBuy,maxBuy:criteria.maxBuy,playerId:criteria.maskedDefId});
+ window.__testSearches++;window.__sdkInFlight=(window.__sdkInFlight||0)+1;window.__sdkMaxInFlight=Math.max(window.__sdkMaxInFlight||0,window.__sdkInFlight);
+ const out=new Observable(),items=window.__testPages?.[page-1]??window.__testItems;
+ setTimeout(()=>{window.__sdkInFlight--;out.notify(window.__sdkError?{success:false,status:window.__sdkError,error:{code:window.__sdkError}}:{success:true,status:200,data:{items}});},window.__testDelay);
+ return out;
+};
+
+window.UTMarketSearchFiltersView=class UTMarketSearchFiltersView {};window.UTMarketSearchFiltersView.Event={MAX_BUY_PRICE_CHANGE:'max-buy'};window.AUCTION_MIN_BUY=200;window.UTCurrencyInputControl={getIncrementBelowVal:value=>value-(value<=1000?50:100),getIncrementAboveVal:value=>value+(value<1000?50:100)};
