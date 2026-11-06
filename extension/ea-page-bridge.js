@@ -11,6 +11,7 @@
   const fail = (code, message) => { throw Object.assign(new Error(message), {code}); };
   const sleep = ms => new Promise(resolve => setTimeout(resolve, ms));
   let picker = null, activeSearch = null, sequence = 0;
+  const playerPools=new Map();
   function context() {
     const app = typeof getAppMain === 'function' ? getAppMain() : null;
     const root = app?.getRootViewController?.();
@@ -124,6 +125,10 @@
       getMetadata:entry=>{const row=lookup.get(Number(entry.id));return row?{name:row.name,leagueId:row.league,leagueLabel:leagues.get(row.league)}:null;},
       getIcon:entry=>ctrl.iconTable?.get?.(entry.value),
       getFallbackImage:entry=>{try{return view?.generateFilterImage?.(enumId,entry.id,entry.value)||'';}catch{return '';}},
+      getExtraImages:entry=>{
+        const fn={club:'getBadgeImageUri',league:'getLeagueImageUri',nation:'getFlagImageUri'}[kind];
+        try{return fn&&entry.id>=0&&typeof window.AssetLocationUtils?.[fn]==='function'?[window.AssetLocationUtils[fn](entry.id,window.UIThemeVariation?.DARK)]:[];}catch{return [];}
+      },
       getAlternateName:entry=>{try{return kind==='club'?window.UTLocalizationUtil?.teamIdToAbbr3?.(entry.id,window.services.Localization)||'':'';}catch{return '';}}
     });
     picker = {ctrl,entries,kind,token,owner:filters(),signatures:entries.map(model.identity),indices:new Set(presented.options.map(x=>x.index)),labels:new Map(presented.options.map(x=>[x.index,x.label]))};
@@ -151,18 +156,35 @@
     return rows.slice(0,30);
   }
   function players(query) {
-    return {ok:true,items:lookup(query).map(p=>({key:'ea-player-'+p.id,source:'ea-native',playerId:number(p.id),itemId:null,
-      name:name(p),rating:number(p.rating),position:'',rarity:'EA base player',imageUrl:''}))};
+    const rows=lookup(query),token='players-'+(++sequence);
+    playerPools.set(token,{rows,query});while(playerPools.size>6)playerPools.delete(playerPools.keys().next().value);
+    return {ok:true,items:rows.map(p=>{
+      let imageUrl='';try{imageUrl=window.CodexEAOptions.assetUrl(window.AssetLocationUtils?.getPortraitImageUri?.(p.id),location.href);}catch{}
+      return {key:'ea-player-'+p.id,source:'ea-native',nativeToken:token,searchQuery:query,playerId:Number(p.id),itemId:null,
+        name:name(p),rating:number(p.rating),position:'',rarity:'EA base player',imageUrl,imageSource:imageUrl?'ea-portrait':'unavailable'};
+    })};
   }
   function selectPlayer(args) {
-    if (!Number.isSafeInteger(args.id)||args.id<=0) fail('BAD_ARGUMENT','Invalid EA player ID.');
-    const matches=lookup(args.query).filter(p=>p.id===args.id);
+    let id=args.id,matches=[],resolution='native-player-id';
+    const itemId=Number(args.itemId),mask=window.ItemIdMask?.DATABASE;
+    if(args.source!=='ea-native'&&Number.isSafeInteger(itemId)&&itemId>0&&Number.isInteger(mask)&&mask>0){id=itemId&mask;resolution='ea-database-mask';}
+    if (!Number.isSafeInteger(id)||id<=0) fail('BAD_ARGUMENT','Invalid EA player ID. Select a native EA suggestion.');
+    if(args.nativeToken){
+      const pool=playerPools.get(args.nativeToken);
+      if(!pool)fail('PLAYER_STALE','Search EA again and select its current suggestion.');
+      matches=pool.rows.filter(p=>Number(p.id)===id);
+    }else{
+      const queries=[args.searchQuery,args.query,...String(args.query||'').split(/\s+/)].filter(q=>typeof q==='string'&&q.length>=2&&q.length<=50);
+      for(const q of [...new Set(queries)].slice(0,5)){
+        matches=lookup(q).filter(p=>Number(p.id)===id);if(matches.length===1)break;
+      }
+    }
     if (matches.length!==1) fail('PLAYER_MISMATCH','EA did not return one matching player ID.');
     const c=filters(), ctrl=c.getView().getPlayerNameSearch();
     ctrl.selectPlayerEntry(matches[0],name(matches[0]));
     const snap=readFilters();
-    if (snap.player?.id!==args.id || snap.maskedDefId!==args.id) fail('PLAYER_MISMATCH','EA did not confirm the player criteria.');
-    return {ok:true,snapshot:snap};
+    if (Number(snap.player?.id)!==id || Number(snap.maskedDefId)!==id) fail('PLAYER_MISMATCH','EA did not confirm the player criteria.');
+    return {ok:true,resolvedPlayerId:id,resolution,snapshot:snap};
   }
   function clearPlayer() {
     const c=filters(),ctrl=c.getView()?.getPlayerNameSearch?.();

@@ -1,3 +1,15 @@
+# 3.4.2
+- Default player lookup connects to EA; share in-flight connection work across callers.
+- Select from cached native suggestions by their exact IDs and issued pool tokens, avoiding full-name requery failures.
+- Resolve legacy catalogue definition IDs through EA ItemIdMask.DATABASE and confirm native identity before Start.
+- Replace the single active target on selection and reset stale confirmation labels immediately.
+- Render base-player portraits via EA getPortraitImageUri.
+- Recognize EA's leading missing-translation marker and RTL controls.
+- Group equal club names visually while keeping every original native ID and league choice.
+- Add native badge/flag/league image-function candidates and disclose unavailable assets.
+- Add regression coverage for catalogue 50540979 -> native 209331, prefix-only search, native portraits, Start handoff and grouped club selections.
+- Include an independent static Deep Snipe audit with a reproduced array-index/ID normalization defect. Third-party source and session/network interception are not included in this extension.
+
 # 3.4.1 — CODEX SNIPE
 - Rename the product and export filenames, preserving existing settings and internal protocol IDs.
 - Deduplicate exact native option identities while preserving same-name entries with different IDs and original selection indices.

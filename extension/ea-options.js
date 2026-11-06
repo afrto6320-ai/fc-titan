@@ -3,9 +3,11 @@
   'use strict';
   const plain = value => typeof value === 'string' ? value.trim().slice(0,180) : '';
   function resolvedName(value) {
-    const label=plain(value);
-    // EA returns the translation key (sometimes with a trailing *) when localization is absent.
-    return label && !/^[a-z][\w-]*(?:\.[\w-]+){2,}\*?$/i.test(label) ? label : '';
+    const label=plain(value).normalize('NFKC').replace(/[\u200b-\u200f\u202a-\u202e\u2066-\u2069\ufeff]/g,'').trim();
+    const key=label.replace(/^[*^?!\s]+|[*^?!\s]+$/g,'');
+    // hasLocalizationString in EA's own source compares against '*' + key.
+    if(!label||/^(undefined|null)$/i.test(label)||/[\u0000-\u001f\u007f-\u009f\ufffd]/.test(label))return '';
+    return /^(?:global|search(?:filters)?|roles|extendedPlayerInfo|rarity|itemRarity|text|controlbar|notification|onboarding|navbar?)\.[\w.-]+$/i.test(key)?'':label;
   }
   function identity(entry) {
     const id=Number(entry.id);
@@ -18,7 +20,7 @@
       return u.protocol==='https:'&&!u.username&&!u.password?u.href:'';
     }catch{return '';}
   }
-  function present(entries, {kind,base,getMetadata=()=>null,getIcon=()=>'',getFallbackImage=()=>'',getAlternateName=()=>''}) {
+  function present(entries, {kind,base,getMetadata=()=>null,getIcon=()=>'',getFallbackImage=()=>'',getExtraImages=()=>[],getAlternateName=()=>''}) {
     const rows=new Map();
     let duplicates=0;
     entries.forEach((entry,index)=>{
@@ -26,7 +28,7 @@
       const label=resolvedName(entry.label)||resolvedName(meta.name)||resolvedName(getAlternateName(entry));
       const labelSource=resolvedName(entry.label)?'ea-option':resolvedName(meta.name)?'ea-config':label?'ea-localization':'missing';
       const id=Number(entry.id);
-      const icons=[['ea-icon-table',getIcon(entry)],['ea-filter-image',getFallbackImage(entry)]];
+      const icons=[['ea-icon-table',getIcon(entry)],['ea-filter-image',getFallbackImage(entry)],...getExtraImages(entry).map(url=>['ea-asset-function',url])];
       const images=[];
       for(const [source,value] of icons){const url=assetUrl(value,base);if(url&&!images.some(x=>x.url===url))images.push({url,source});}
       const option={index,id:Number.isSafeInteger(id)?id:null,label:label||`EA ${kind} #${entry.id}`,
@@ -38,9 +40,19 @@
     });
     const options=[...rows.values()];
     return {options,meta:{source:'ea-native',rawCount:entries.length,uniqueCount:options.length,duplicatesRemoved:duplicates,
-      unresolvedNames:options.filter(x=>x.unresolved).length,withoutImageUrl:options.filter(x=>!x.images.length).length}};
+      unresolvedNames:options.filter(x=>x.unresolved).length,withoutImageUrl:options.filter(x=>!x.images.length).length,
+      nameGroups:kind==='club'?groups(options.filter(x=>!x.unresolved)).length:null}};
   }
-  const api=Object.freeze({present,resolvedName,identity,assetUrl});
+  function groups(options) {
+    const map=new Map();
+    for(const option of options){
+      const key=option.unresolved?'id:'+option.index:'name:'+option.label.normalize('NFKC').toLocaleLowerCase().replace(/\s+/g,' ').trim();
+      if(!map.has(key))map.set(key,{label:option.label,options:[]});
+      map.get(key).options.push(option);
+    }
+    return [...map.values()];
+  }
+  const api=Object.freeze({present,resolvedName,identity,assetUrl,groups});
   if(typeof module==='object'&&module.exports)module.exports=api;
   else root.CodexEAOptions=api;
 })(globalThis);

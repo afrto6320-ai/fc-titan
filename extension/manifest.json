@@ -2,7 +2,7 @@
   "manifest_version": 3,
   "name": "CODEX SNIPE | FC Web App",
   "short_name": "CODEX SNIPE",
-  "version": "3.4.1",
+  "version": "3.4.2",
   "description": "Embedded FC catalogue and native UI market connector, original option browser, compatibility diagnostics and search pacing.",
   "minimum_chrome_version": "111",
   "permissions": [
@@ -52,6 +52,7 @@
       ],
       "run_at": "document_idle",
       "js": [
+        "ea-options.js",
         "snipe-core.js",
         "ea-page-client.js",
         "native-market.js",

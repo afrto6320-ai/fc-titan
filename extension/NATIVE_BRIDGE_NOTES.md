@@ -1,3 +1,19 @@
+# v3.4.2 contract corrections
+
+The user report showed that native EA suggestions were present, while the selected target still held catalogue Item ID 50540979. The adapter must resolve and confirm the base Player ID without silently replacing the requested card definition.
+
+EA source evidence:
+- UTItemEntity.databaseId returns definitionId & ItemIdMask.DATABASE (compiled_2.js).
+- ItemIdMask assigns 0xffffff to its database part in the provided ocompiled.js.
+- UTLocalizationUtil.hasLocalizationString compares localize(key) with '*' + key. The previous detector's trailing-only marker handling was incomplete.
+- UTPlayerItemView.setPortrait calls AssetLocationUtils.getPortraitImageUri(item.databaseId) for standard portraits.
+
+The player pool protocol preserves the exact entry returned for the original query. Legacy catalogue recovery uses the live EA mask, followed by an exact-ID lookup. No name-only match can confirm a different player. Images remain native URI candidates, not a guarantee of availability.
+
+Deep Snipe review is recorded separately in DEEP_SNIPE_REVIEW_AR.md; its source, session-reading and network hooks were not integrated.
+
+---
+
 # v3.4.1 option provenance
 
 The uploaded user reports show successful MAIN-world connection, native player selection, filter updates, and nine confirmed empty searches in v3.4.0. They do not prove that every club name/logo resolves or that every filter has market listings.

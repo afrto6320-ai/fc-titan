@@ -1,6 +1,6 @@
 const test=require('node:test');
 const assert=require('node:assert/strict');
-const {present,resolvedName}=require('../ea-options.js');
+const {present,resolvedName,groups}=require('../ea-options.js');
 const base='https://www.ea.com/ea-sports-fc/ultimate-team/web-app/';
 test('native identities deduplicate without merging different clubs with the same name',()=>{
   const entries=[{id:1,value:'1',label:'FC Köln'},{id:1,value:'1',label:'FC Köln'},
@@ -30,4 +30,12 @@ test('names and alternate images come only from supplied native providers',()=>{
   assert.deepEqual(unsafe.options[0].images,[]);
   assert.equal(resolvedName('global.teamabbr15.2027.team131541*'),'');
   assert.equal(resolvedName('D.C. United'),'D.C. United');
+});
+test('EA leading missing-translation marker and RTL formatting never become club names',()=>{
+  for(const s of ['*global.teamabbr15.2027.team131541','\u200f*global.teamabbr15.2027.team131541\u200e',
+    'global.teamabbr15.2027.team131541*','global.teamabbr15.2027.team131541^','null','undefined'])assert.equal(resolvedName(s),'');
+  assert.equal(resolvedName('1. FC Köln'),'1. FC Köln');
+  const r=present([{id:31,value:'31',label:'1. FC Köln'},{id:116000,value:'116000',label:'1. FC Köln'}],{kind:'club',base});
+  const grouped=groups(r.options);assert.equal(grouped.length,1);assert.equal(grouped[0].options.length,2);
+  assert.deepEqual(grouped[0].options.map(x=>x.id),[31,116000]);
 });

@@ -4,6 +4,8 @@ window.__testObservers=new Set();
 window.enums={UISearchFilters:{TYPE:10,LEVEL:11,RARITY:12,POSITION:13,NATION:14,LEAGUE:15,CLUB:16}};
 window.SearchType={ANY:'any',PLAYER:'player'};
 window.SearchCategory={ANY:'any'};
+window.ItemIdMask={DATABASE:0xffffff};
+window.AssetLocationUtils={getPortraitImageUri:id=>'/test-portraits/'+id+'.svg'};
 window.UTServerSettingsRepository={KEY:{PLATFORM_SPLIT_FOR_TRANSFER_MARKET:'split'}};
 window.JSUtils={isValid:x=>x!==null&&x!==undefined};
 window.isPhone=()=>false;
@@ -60,7 +62,7 @@ window.UTMarketSearchFiltersViewController=class UTMarketSearchFiltersViewContro
       }
     };
     const selected={value:null};
-    const playerSearch={searchEngine:{getEntriesForString:q=>q.toLowerCase().includes('sal')?[player]:[]},
+    const playerSearch={searchEngine:{getEntriesForString:q=>['salah','moha'].includes(q.toLowerCase())?[player]:[]},
       getSelected:()=>selected.value,clearInput:()=>{selected.value=null;},
       selectPlayerEntry:(p)=>{selected.value=p;this.ePlayerNameChanged();}};
     const map=new Map();

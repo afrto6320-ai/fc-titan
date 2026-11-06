@@ -44,6 +44,7 @@ with sync_playwright() as p:
     context=browser.new_context(viewport={'width':1500,'height':1000},accept_downloads=True)
     context.route('https://www.ea.com/**',lambda route:route.fulfill(status=200,content_type='text/html',body=html) if route.request.url==URL else route.abort())
     page=context.new_page();errors=[]
+    page.route('**/test-portraits/**',lambda route:route.fulfill(status=200,content_type='image/svg+xml',body='<svg xmlns="http://www.w3.org/2000/svg" width="20" height="20"><rect width="20" height="20" fill="blue"/></svg>'))
     page.on('pageerror',lambda e:errors.append(str(e)))
     page.goto(URL)
     page.add_script_tag(content=(ROOT/'ea-options.js').read_text())
@@ -52,8 +53,10 @@ with sync_playwright() as p:
     frame=cdp.send('Page.getFrameTree')['frameTree']['frame']['id']
     world=cdp.send('Page.createIsolatedWorld',{'frameId':frame,'worldName':'gpts-test-extension'})['executionContextId']
     css='data:text/css;base64,'+base64.b64encode((ROOT/'embedded.css').read_bytes()).decode()
-    shim='window.chrome={runtime:{getURL:()=>'+json.dumps(css)+',sendMessage:async()=>{throw Error("Unexpected external catalogue request")}},storage:{local:{get:async()=>({}),set:async()=>{}}}};'
-    scripts=['snipe-core.js','ea-page-client.js','native-market.js','embedded.js']
+    stale={'name':'Mohamed Salah','rating':88,'itemId':50540979,'playerId':None,'source':'futgg','key':'item:50540979'}
+    stored={'gpts_embedded_v3':{'selected':stale,'selectedTargets':[stale],'settings':{'player':'Mohamed Salah','itemId':'50540979'}}}
+    shim='window.chrome={runtime:{getURL:()=>'+json.dumps(css)+',sendMessage:async()=>{throw Error("Unexpected external catalogue request")}},storage:{local:{get:async()=>('+json.dumps(stored)+'),set:async()=>{}}}};'
+    scripts=['snipe-core.js','ea-options.js','ea-page-client.js','native-market.js','embedded.js']
     loaded=cdp.send('Runtime.evaluate',{'contextId':world,'expression':shim+'\n'+'\n'.join((ROOT/name).read_text() for name in scripts)})
     assert 'exceptionDetails' not in loaded,loaded
     def request(command,args=None):
@@ -71,9 +74,23 @@ with sync_playwright() as p:
     # Real Chrome isolated world: page cannot reach the isolated client.
     assert page.evaluate('typeof window.GPTPageClient')=='undefined'
     assert page.evaluate('window.__GPT_EA_PAGE_BRIDGE_V1__') is True
-    sh.locator('#connectEA').click()
+    sh.locator('#player').fill('moha')
+    sh.locator('#playerResults .result .avatar img').first.wait_for()
+    assert 'EA native' in sh.locator('#provider').inner_text()
+    sh.locator('#maxBin').fill('1000');sh.locator('#maxSearches').fill('1')
+    sh.locator('#start').click()
     page.wait_for_function("document.querySelector('#gpts-v3-host').shadowRoot.querySelector('#nativeConnectStatus').textContent.includes('PAGE FUNCTIONS')")
     assert page.locator('.ut-market-search-filters-view button').count()==0
+    page.wait_for_function("document.querySelector('#gpts-v3-host').shadowRoot.querySelector('#playerSyncState').textContent.includes('ea-database-mask')")
+    page.wait_for_function("document.querySelector('#gpts-v3-host').shadowRoot.querySelector('#searchCount').textContent==='1'")
+    page.wait_for_function("document.querySelector('#gpts-v3-host').shadowRoot.querySelector('#runBadge').textContent.includes('STANDBY')")
+    assert request('connect')['ok']
+    assert page.evaluate('__nav.currentController.viewmodel.searchCriteria.maskedDefId')==209331
+    assert sh.locator('#itemId').input_value()=='50540979'
+    page.evaluate('window.__testSearches=0;window.__testCacheClears=0')
+    sh.locator('#clearTargets').click()
+    page.wait_for_function('__nav.currentController.viewmodel.searchCriteria.maskedDefId===0')
+    print('PASS: catalogue 50540979 to EA 209331, prefix-only engine, one-click native connection and confirmation')
     print('PASS: actual Chromium isolated world; native navigation without a DOM Search button')
 
     sh.locator('[data-native-picker="league"]').click()
@@ -87,9 +104,13 @@ with sync_playwright() as p:
     print('PASS: native option collections, selection handlers, dependent club choices')
 
     sh.locator('#player').fill('Salah')
+    sh.locator('#playerResults .result .avatar img').first.wait_for()
+    assert sh.locator('#playerResults .result .avatar img').first.get_attribute('src').endswith('/209331.svg')
     sh.locator('#playerResults .result').first.click()
     page.wait_for_function("document.querySelector('#gpts-v3-host').shadowRoot.querySelector('#playerSyncState').textContent.includes('209331')")
     assert page.evaluate('__nav.currentController.viewmodel.searchCriteria.maskedDefId')==209331
+    assert sh.locator('#selectedTargets .target-chip').count()==1
+    assert sh.locator('#itemId').input_value()==''
     sh.locator('[data-native-picker="event"]').click()
     sh.locator('.native-option').filter(has_text='Icon').click()
     page.wait_for_function('__nav.currentController.viewmodel.searchCriteria.rarities[0]===12')
@@ -161,12 +182,15 @@ with sync_playwright() as p:
       const view=__nav.currentController.getView(),fields=view.getFilters(),ctrl=fields.searchFilters.get(enums.UISearchFilters.CLUB);
       window.__badgeOptions=[{id:-1,value:'-1',label:'Any'},
         {id:9,value:'9',label:'Same Club'},{id:9,value:'9',label:'Same Club'},
-        {id:10,value:'10',label:'Same Club'},{id:99,value:'99',label:'global.teamabbr15.2027.team99*'}];
+        {id:10,value:'10',label:'Same Club'},{id:99,value:'99',label:'*global.teamabbr15.2027.team99'}];
       ctrl.getOptions=()=>window.__badgeOptions.slice();ctrl.index=0;
       ctrl.iconTable=new Map([['9','/test-badges/missing.png'],['10','/test-badges/also-missing.png']]);
       view.getFilters=()=>({...fields,generateFilterImage:(kind,id)=>id===9?'/test-badges/fallback.svg':''});
     })()''')
     sh.locator('[data-native-picker="club"]').click()
+    sh.locator('.native-option-group summary').wait_for()
+    assert sh.locator('#nativePickerResults').inner_text().count('Same Club')==1
+    sh.locator('.native-option-group summary').click()
     sh.locator('.native-option[data-ea-id="9"]').wait_for()
     assert sh.locator('.native-option[data-ea-id="9"]').count()==1
     assert sh.locator('.native-option[data-ea-id="10"]').count()==1
@@ -178,6 +202,7 @@ with sync_playwright() as p:
     sh.locator('#showUnresolvedOptions').check()
     sh.locator('.native-option[data-ea-id="99"]').wait_for()
     assert 'global.teamabbr' not in sh.locator('#nativePickerResults').inner_text()
+    page.screenshot(path='/tmp/CODEX_SNIPE_3.4.2_club_groups.png')
     sh.locator('.native-option-filter').fill('10')
     assert sh.locator('.native-option').count()==1
     sh.locator('.native-option').click()
