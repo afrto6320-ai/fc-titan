@@ -1,3 +1,9 @@
+# 3.9.4
+- Log the confirmed prepared Min/Max Bid and Min/Max Buy Now immediately before each native manual scan or snipe search dispatch.
+- Include the target, 1-based ladder step and cycle length; label zero Max Bid as uncapped and fixed-bid mode without reusing an old ladder step.
+- Preserve ladder computation, price caps, bid fields and existing activity-log export/retention. Skip dispatch/logging when a target rotation was cancelled.
+- Extend browser coverage to match activity entries against SDK arguments, including uncapped/fixed rounds and automatic searches.
+
 # 3.9.3
 - Increase small dashboard copy by roughly one pixel and use heavier body/field text, while retaining existing card, portrait, input and action-bar geometry.
 - Keep prominent clocks, counters, icons, spacing and control dimensions. Preserve existing title/metadata line boxes in pinned cards.

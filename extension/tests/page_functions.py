@@ -517,10 +517,19 @@ with sync_playwright() as p:
         page.wait_for_function("()=>!document.querySelector('#gpts-v3-host').shadowRoot.querySelector('#resultsCount').disabled")
     assert page.evaluate('__sdkCalls.map(x=>x.maxBid)')==[1500,1600,1700,1800,1900,0]
     assert page.evaluate('__sdkCalls.map(x=>x.minBid)')==[0]*6 and page.evaluate('__sdkCalls.every(x=>x.maxBuy===1500)')
+    ladder_logs=sh.locator('#logs .log-row p').all_text_contents()
+    ladder_logs=[x for x in ladder_logs if 'إرسال فحص السوق' in x][:6][::-1]
+    assert len(ladder_logs)==6
+    for index,(entry,value) in enumerate(zip(ladder_logs,[1500,1600,1700,1800,1900,0])):
+      maximum=f'{value:,}' if value else 'بدون حد (0)'
+      assert f'خطوة {index+1}/6' in entry and 'Min Bid: 0' in entry and f'Max Bid: {maximum}' in entry and 'Max Buy Now: 1,500' in entry
     assert sh.locator('#maxBid').input_value()==''
     sh.locator('#bidLadder').select_option('off');sh.locator('#scanMarket').click()
     page.wait_for_function("()=>!document.querySelector('#gpts-v3-host').shadowRoot.querySelector('#resultsCount').disabled")
     assert page.evaluate('__sdkCalls.at(-1).maxBid')==0
+    fixed_log=sh.locator('#logs .log-row p').filter(has_text='إرسال فحص السوق').first.inner_text()
+    assert 'السلم متوقف' in fixed_log and 'خطوة' not in fixed_log and 'Max Bid: بدون حد (0)' in fixed_log
+    print('PASS: each dispatched scan logs its actual prepared bid/BIN values, 1-based ladder step, uncapped round and fixed mode without a stale step')
     sh.locator('#bidLadderCeiling').fill('200000');sh.locator('#bidLadder').select_option('max');page.evaluate('window.__sdkCalls=[]')
     for _ in range(7):
         sh.locator('#scanMarket').click();page.wait_for_function("()=>!document.querySelector('#gpts-v3-host').shadowRoot.querySelector('#resultsCount').disabled")
@@ -710,6 +719,8 @@ with sync_playwright() as p:
     assert page.evaluate('__nav.currentController instanceof UTMarketSearchFiltersViewController')
     assert page.evaluate('__sdkCalls.at(-1).maxBuy')==1000 and page.evaluate('__lastBidPrice')==900
     assert 'EA SDK DIRECT CONNECTED' in sh.locator('#connection').inner_text()
+    snipe_log=sh.locator('#logs .log-row p').filter(has_text='إرسال بحث السنايب').first.inner_text()
+    assert 'سلم Max Bid' in snipe_log and 'Min Bid: 0' in snipe_log and 'Max Buy Now: 1,000' in snipe_log
     sh.locator('#autoBuy').uncheck()
     print('PASS: full UI Auto Buy uses SDK directly with view linkage active, original native item, actual Buy Now price, confirmed counters and no results-controller navigation')
 
