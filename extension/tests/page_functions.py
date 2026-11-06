@@ -411,7 +411,8 @@ with sync_playwright() as p:
     page.wait_for_function("()=>!document.querySelector('#gpts-v3-host').shadowRoot.querySelector('#resultsCount').disabled")
     assert page.evaluate('__requestsMax')==1 and sh.locator('.market-card').count()==0
     assert 'market-full' not in sh.locator('#marketPanel').get_attribute('class')
-    assert page.evaluate('__nativeMinBid')==0 and page.evaluate('__nativeMaxBid')==0
+    assert page.evaluate('__nativeMinBid')==0 and page.evaluate('__nativeMaxBid===0||__nativeMaxBid>=__nativeMaxBin')
+    assert sh.locator('#maxBid').input_value()==''
     print('PASS: rapid clicks coalesce to one additional fresh request, no overlap, no bid-filter mutation, no stale card accumulation')
 
     # Stable workspace layout, positions and pinned multi-player cards.
@@ -442,7 +443,7 @@ with sync_playwright() as p:
     page.wait_for_function("()=>!document.querySelector('#gpts-v3-host').shadowRoot.querySelector('#start').disabled&&__nav.currentController.viewmodel?.searchCriteria.maskedDefId===200104")
     assert page.evaluate('__nav.currentController.viewmodel.searchCriteria.rarities')==[]
     sh.locator('#shell').evaluate('(e)=>e.scrollTop=0')
-    page.screenshot(path='/tmp/CODEX_SNIPE_v3.7.0_targets.png')
+    page.screenshot(path='/tmp/CODEX_SNIPE_v3.8.0_targets.png')
     print('PASS: combined player/transfer panels, pricing placement, connection below logs, reversible panel ordering, native positions, duplicate player IDs removed, pinned cards and collapsed picker')
 
     # A two-player run preserves a single budget ledger. A second 900 purchase cannot fit 1500 total.
@@ -451,9 +452,13 @@ with sync_playwright() as p:
     sh.locator('#maxSearches').fill('4');sh.locator('#maxBuys').fill('2');sh.locator('#budget').fill('1500');sh.locator('#autoBuy').check()
     calls=page.evaluate('__bidCalls');sh.locator('#start').click()
     page.wait_for_function("()=>document.querySelector('#gpts-v3-host').shadowRoot.querySelector('#searchCount').textContent==='1'")
+    cdp.send('Runtime.evaluate',{'contextId':world,'expression':'window.__savedTradeHelper=window.CodexTradeCore;delete window.CodexTradeCore;'})
+    page.wait_for_timeout(250)
+    assert len(sh.locator('#time').inner_text().split(':'))==3 and sh.locator('#cyclePhase').inner_text()!='—'
     angle=sh.locator('#gaugeRotor').evaluate('(e)=>getComputedStyle(e).transform')
     page.wait_for_function('(angle)=>getComputedStyle(document.querySelector("#gpts-v3-host").shadowRoot.querySelector("#gaugeRotor")).transform!==angle',arg=angle)
     page.wait_for_function("()=>{const s=document.querySelector('#gpts-v3-host').shadowRoot;return s.querySelector('#searchCount').textContent==='4'&&!s.querySelector('#start').disabled;}",timeout=12000)
+    cdp.send('Runtime.evaluate',{'contextId':world,'expression':'window.CodexTradeCore=window.__savedTradeHelper;'})
     assert page.evaluate('__searchedPlayers')==[209331,200104,209331,200104]
     assert page.evaluate('__bidCalls')==calls+1 and sh.locator('#buyCount').inner_text()=='1' and sh.locator('#spent').inner_text()=='900'
     assert sh.locator('#gaugeRotor').evaluate('(e)=>e.style.animationPlayState')=='paused'
@@ -470,6 +475,90 @@ with sync_playwright() as p:
     page.wait_for_function('__nav.currentController.viewmodel?.searchCriteria.maskedDefId===209331')
     assert sh.locator('.selected-card').count()==1
     sh.locator('#maxBuys').fill('1');sh.locator('#maxSearches').fill('1');sh.locator('#budget').fill('10000')
+
+    # Ladder sends six distinct bid constraints while preserving the purchase ceiling and native filters.
+    sh.locator('#autoBuy').uncheck();sh.locator('#maxBin').fill('1500');sh.locator('#bidLadder').select_option('max')
+    page.evaluate('window.__testItems=[];window.__sentMaxBids=[];window.__sentMinBids=[]')
+    for _ in range(6):
+        sh.locator('#scanMarket').click()
+        page.wait_for_function("()=>!document.querySelector('#gpts-v3-host').shadowRoot.querySelector('#resultsCount').disabled")
+    assert page.evaluate('__sentMaxBids')==[1500,1600,1700,1800,1900,0]
+    assert page.evaluate('__sentMinBids')==[0]*6 and page.evaluate('__nativeMaxBin')==1500
+    assert sh.locator('#maxBid').input_value()==''
+    sh.locator('#bidLadder').select_option('off');sh.locator('#scanMarket').click()
+    page.wait_for_function("()=>!document.querySelector('#gpts-v3-host').shadowRoot.querySelector('#resultsCount').disabled")
+    assert page.evaluate('__sentMaxBids.at(-1)')==0
+    print('PASS: native Max Bid ladder, periodic uncapped search, fixed Min Bid, unchanged Buy Now ceiling and reversible fixed-bid mode')
+
+    # A layout wrapper may change while the actual native results controller stays the same.
+    page.evaluate("resetTrade('same-inner-controller');window.__testDelay=350")
+    sh.locator('#scanMarket').click()
+    page.wait_for_function('__nav.currentController instanceof UTMarketSearchResultsSplitViewController')
+    page.evaluate('__nav.currentController=__nav.currentController._listController')
+    sh.locator('.market-card[data-trade-id="same-inner-controller"]').wait_for()
+    assert 'RW' in sh.locator('.market-card').first.inner_text()
+    assert sh.locator('.market-position').first.inner_text()=='RW'
+    print('PASS: same native result controller survives wrapper changes without a false VIEW_CHANGED error')
+
+    # An awaited navigation command cannot pop a running search; cancellation stops a pending navigation too.
+    page.evaluate('__nav.isTransitioning=true')
+    cdp.send('Runtime.evaluate',{'contextId':world,'expression':"window.__pendingNav=GPTPageClient.request('connect').then(r=>({ok:true}),e=>({ok:false,code:e.code}));"})
+    page.wait_for_timeout(100)
+    assert request('status')['result']['busy'] is True
+    assert request('search',{'maxBin':1500,'criteriaKey':'unused'})['code']=='BUSY'
+    request('cancel')
+    pending=cdp.send('Runtime.evaluate',{'contextId':world,'expression':'window.__pendingNav','awaitPromise':True,'returnByValue':True})
+    assert pending['result']['value']['code']=='CANCELLED'
+    page.evaluate('__nav.isTransitioning=false')
+    assert request('connect')['ok']
+    # A genuine Back/navigation is still rejected and never turns old rows into new results.
+    sh.locator('#scanMarket').click();page.wait_for_function('__nav.currentController instanceof UTMarketSearchResultsSplitViewController')
+    page.evaluate('__nav.popToViewController(__nav.childViewControllers.find(c=>c instanceof UTMarketSearchFiltersViewController))')
+    page.wait_for_function("()=>!document.querySelector('#gpts-v3-host').shadowRoot.querySelector('#resultsCount').disabled")
+    assert sh.locator('.market-card').count()==0 and 'EA closed or changed' in sh.locator('#marketResponse').inner_text()
+    page.wait_for_timeout(400);page.evaluate('window.__testDelay=50;window.__testItems=[]')
+    print('PASS: native operation lock prevents overlapping navigation/search, cancellation stops pending navigation, real view changes clear current rows')
+
+    # Hide intro reclaims vertical space; presets restore native filter IDs and targets, not just labels.
+    sh.locator('#shell').evaluate('(e)=>e.scrollTop=0')
+    old_y=sh.locator('.layout').evaluate('(e)=>e.offsetTop')
+    sh.locator('#toggleIntro').click()
+    assert sh.locator('.intro').is_hidden()
+    new_y=sh.locator('.layout').evaluate('(e)=>e.offsetTop')
+    assert new_y<old_y
+    sh.locator('#toggleIntro').click();assert sh.locator('.intro').is_visible()
+    page.remove_listener('dialog',dialog_handler)
+    page.once('dialog',lambda d:d.accept('Native saved filter'))
+    sh.locator('#maxBin').fill('1000');sh.locator('#saveFilterTop').click()
+    sh.locator('#presets option[value="Native saved filter"]').wait_for(state='attached')
+    page.on('dialog',dialog_handler)
+    sh.locator('#clearTargets').click();page.wait_for_function('__nav.currentController.viewmodel?.searchCriteria.maskedDefId===0')
+    sh.locator('#maxBin').fill('700');sh.locator('#presets').select_option('Native saved filter')
+    page.wait_for_function("()=>{const s=document.querySelector('#gpts-v3-host').shadowRoot;return !s.querySelector('#start').disabled&&__nav.currentController.viewmodel?.searchCriteria.maskedDefId===209331;}")
+    assert sh.locator('#maxBin').input_value()=='1000' and page.evaluate('__nativeMaxBin')==1000
+    assert page.evaluate('__nav.currentController.viewmodel.searchCriteria.rarities')==[12]
+    assert sh.locator('.selected-card').count()==1 and sh.locator('#playerSearchDrawer').is_hidden()
+    # The same save action must restore generic GK/nation filters with no selected player.
+    sh.locator('#clearTargets').click();page.wait_for_function('__nav.currentController.viewmodel?.searchCriteria.maskedDefId===0')
+    sh.locator('[data-native-picker="position"]').click();sh.locator('.native-option').filter(has_text='GK').click()
+    sh.locator('[data-native-picker="nation"]').click();sh.locator('.native-option').filter(has_text='Spain').click()
+    page.remove_listener('dialog',dialog_handler);page.once('dialog',lambda d:d.accept('Spanish keepers'))
+    sh.locator('#saveFilterTop').click();sh.locator('#presets option[value="Spanish keepers"]').wait_for(state='attached')
+    page.on('dialog',dialog_handler)
+    sh.locator('[data-native-picker="position"]').click();sh.locator('.native-option').filter(has_text='Any position').click()
+    sh.locator('[data-native-picker="nation"]').click();sh.locator('.native-option').filter(has_text='Any nation').click()
+    sh.locator('#presets').select_option('Spanish keepers')
+    page.wait_for_function("()=>!document.querySelector('#gpts-v3-host').shadowRoot.querySelector('#start').disabled&&__nav.currentController.viewmodel?.searchCriteria.nation===45")
+    assert page.evaluate('__nav.currentController.viewmodel.searchCriteria.position')=='GK'
+    assert sh.locator('.selected-card').count()==0 and sh.locator('#maxBin').input_value()=='1000'
+    sh.locator('#presets').select_option('Native saved filter')
+    page.wait_for_function("()=>!document.querySelector('#gpts-v3-host').shadowRoot.querySelector('#start').disabled&&__nav.currentController.viewmodel?.searchCriteria.maskedDefId===209331")
+    badge=sh.locator('.selected-portrait .position-badge').first.bounding_box();rating=sh.locator('.selected-portrait > b').first.bounding_box()
+    assert badge['y']>rating['y'] and abs(badge['x']-rating['x'])<20
+    sh.locator('#shell').evaluate('(e)=>e.scrollTop=800');sh.locator('#scrollTop').wait_for();sh.locator('#scrollTop').click()
+    page.wait_for_function("()=>document.querySelector('#gpts-v3-host').shadowRoot.querySelector('#shell').scrollTop<5")
+    page.screenshot(path='/tmp/CODEX_SNIPE_v3.8.0_compact.png')
+    print('PASS: intro toggle reclaims space, header filter save/load restores native IDs/player/prices, card position sits under rating, floating Top scrolls the dashboard')
 
     # A successful transport with no isWon state is uncertain, not a completed purchase.
     page.evaluate("resetTrade('uncertain-buy');window.__bidScenario='pending'")

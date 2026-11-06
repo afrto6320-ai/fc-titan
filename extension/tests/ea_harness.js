@@ -56,14 +56,14 @@ window.PlayerPosition={7:'RW'};
 class Filter {
   constructor(owner,kind){this.owner=owner;this.kind=kind;this.index=0;this.iconTable=new Map();}
   getOptions(){
-    if(this.kind==='nation')return [{id:-1,value:-1,label:'Any nation'},{id:111,value:111,label:'Egypt'}];
+    if(this.kind==='nation')return [{id:-1,value:-1,label:'Any nation'},{id:111,value:111,label:'Egypt'},{id:45,value:45,label:'Spain'}];
     if(this.kind==='league')return [{id:-1,value:-1,label:'Any league'},{id:13,value:13,label:'Premier League'},{id:53,value:53,label:'LaLiga'}];
     if(this.kind==='club')return this.owner.viewmodel.searchCriteria.league===53
       ?[{id:-1,value:-1,label:'Any club'},{id:243,value:243,label:'Real Madrid'}]
       :[{id:-1,value:-1,label:'Any club'},{id:9,value:9,label:'Liverpool'}];
     if(this.kind==='quality')return [{id:-1,value:-1,label:'Any quality'},{id:3,value:3,label:'Gold'}];
     if(this.kind==='event')return [{id:-1,value:-1,label:'Any event'},{id:1,value:1,label:'Rare'},{id:12,value:12,label:'Icon'},{id:46,value:46,label:'Unrelated event'}];
-    return [{id:-1,value:'any',label:'Any position'},{id:7,value:'RW',label:'RW'}];
+    return [{id:-1,value:'any',label:'Any position'},{id:7,value:'RW',label:'RW'},{id:0,value:'GK',label:'GK'}];
   }
   get id(){return this.getOptions()[this.index]?.id??-1;}
   get label(){return this.getOptions()[this.index]?.label||'';}
@@ -107,7 +107,7 @@ window.UTMarketSearchFiltersViewController=class UTMarketSearchFiltersViewContro
 window.UTMarketSearchResultsViewController=class UTMarketSearchResultsViewController {
   constructor(){this.onDataChange=new Observable();this.paginationViewModel={getNumItemsPerPage:()=>20};}
   initWithSearchCriteria(criteria){this.searchCriteria=criteria;}
-  load(){window.__testSearches++;window.__searchedPlayers=(window.__searchedPlayers||[]);window.__searchedPlayers.push(this.searchCriteria.maskedDefId);
+  load(){window.__testSearches++;window.__sentMaxBids??=[];window.__sentMaxBids.push(this.searchCriteria.maxBid);window.__sentMinBids??=[];window.__sentMinBids.push(this.searchCriteria.minBid);window.__searchedPlayers=(window.__searchedPlayers||[]);window.__searchedPlayers.push(this.searchCriteria.maskedDefId);
     if(window.__autoTargetOffers){const id=this.searchCriteria.maskedDefId,rare=this.searchCriteria.rarities[0]??1;const item=resetTrade('rotation-'+id+'-'+window.__testSearches);item.databaseId=id;item.definitionId=id+(rare===12?3*16777216:0);item.rareflag=rare;item.preferredPosition=id===209331?7:'LW';item.getStaticData=()=>({commonName:id===209331?'Mohamed Salah':'Son Heungmin'});}
     this._requestItems(1);}
   _requestItems(page){window.__testPageRequests=(window.__testPageRequests||[]);window.__testPageRequests.push(page);const items=window.__testPages?.[page-1]??window.__testItems;window.__requestsActive=(window.__requestsActive||0)+1;window.__requestsMax=Math.max(window.__requestsMax||0,window.__requestsActive);setTimeout(()=>{window.__requestsActive--;this.onDataChange.notify({items});},window.__testDelay);}

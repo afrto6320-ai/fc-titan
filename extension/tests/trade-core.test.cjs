@@ -18,3 +18,20 @@ test('network/server failures are uncertain rather than permission to retry a bi
   for(const status of [400,401,403,429])assert.equal(uncertainFailure({status}),false);
   assert.equal(uncertainFailure({}),true);
 });
+test('Max Bid ladder preserves Min Bid, starts above the Buy Now ceiling and returns to an uncapped query',()=>{
+  const {bidLadder}=require('../trade-core.js');
+  assert.deepEqual(Array.from({length:6},(_,index)=>bidLadder({enabled:true,index,maxBuyNow:1000}).maxBid),[1000,1100,1200,1300,1400,0]);
+  for(let index=0;index<30;index++){
+    const row=bidLadder({enabled:true,index,maxBuyNow:1350,minBid:200,maxBid:1500});
+    assert.equal(row.minBid,200);assert.ok(row.maxBid===0||row.maxBid>=1500);assert.ok(row.maxBid<=15000000);
+  }
+  assert.equal(bidLadder({enabled:true,index:0,maxBuyNow:15000000}).maxBid,15000000);
+  assert.deepEqual(bidLadder({enabled:false,maxBuyNow:1000,minBid:150,maxBid:800}),{minBid:150,maxBid:800,step:null,broad:false});
+});
+test('browser helpers export to window even when a CommonJS-shaped global is present',()=>{
+  const vm=require('node:vm'),fs=require('node:fs'),path=require('node:path');
+  for(const [file,key] of [['trade-core.js','CodexTradeCore'],['ea-options.js','CodexEAOptions'],['price-providers.js','CodexPrices']]){
+    const scope={window:{},module:{exports:{}}};vm.createContext(scope);vm.runInContext(fs.readFileSync(path.join(__dirname,'..',file),'utf8'),scope);
+    assert.equal(scope.window[key],scope.module.exports);assert.equal(scope[key],scope.window[key]);
+  }
+});

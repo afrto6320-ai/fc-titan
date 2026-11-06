@@ -1,3 +1,11 @@
+# 3.8.0
+- Add optional default-on Max Bid ladder: start at or above the effective Buy Now ceiling, advance native price ticks, then run an uncapped bid query every sixth search. Preserve configured bid fields, fixed Min Bid, purchase limits and per-target counters.
+- Fix browser helper exports in CommonJS-shaped contexts. Remove the frozen legacy clock path; use independent monotonic clock calculation and Web Animations/CSS activity even when the helper is missing.
+- Place native positions directly under ratings, fall back past invalid preferred-position values, and enrich pinned cards only from matching native editions.
+- Add persistent intro visibility, header filter save, native-ID/player-aware preset loading, and a floating scroll-to-top action.
+- Lock pending native operations to prevent delayed navigation from overlapping searches. Match the same underlying results controller across wrapper changes while continuing to reject genuine view/navigation changes; report available EA notices.
+- Add ladder, export, missing-helper, wrapper-transition, navigation-cancel, native preset and compact-layout regressions.
+
 # 3.7.0
 - Keep market results embedded by default; full-page display is explicitly toggled.
 - Combine player search and transfer controls, move pricing into transfer filters and native connection below activity logs, and persist reversible panel ordering without rebuilding controls.

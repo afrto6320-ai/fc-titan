@@ -1,3 +1,17 @@
+# v3.8.0 fallback clock, bid ladder and navigation serialization
+
+The user screenshot showed MM:SS, a missing phase and a paused activity ring despite native connection. That rendering matches the old early-return fallback when the isolated trade helper was absent. It does not establish why that helper was missing in the live browser. Browser helpers now export explicitly to window even if a CommonJS-shaped module global is present. The interface has independent monotonic clock math and starts/pauses its own Web Animation, with a CSS fallback; a browser regression deletes the isolated helper during a native session and verifies HH:MM:SS, the phase and continuing rotor motion.
+
+The configurable Max Bid ladder operates through existing EA price handlers only. Each query starts at max(effective Max Buy Now, original Min Bid, original Max Bid, 150), rounded upward to a native tick, advances four ticks and uses maxBid=0 on the sixth query. Counters are per native criteria and configured price tuple. The original fields, Min Bid, Buy Now cap, spend/count ledger, target identity and receipt checks remain intact. Uncapped bid searches still use all other filters and the requested result count; no claim is made that cache keys force network/server freshness or guarantee every auction.
+
+The page bridge now locks awaited native commands as well as active search/buy, preventing a delayed connect/options operation from overlapping another search. Cancel invalidates pending navigation. Search and purchase ownership follow navigation identity plus the exact underlying results controller, allowing an EA split/list wrapper transition without accepting another controller's results. Real Back/view changes still reject and clear the batch, with bounded visible EA error notices when available. No global network interception or raw UTAS request is introduced.
+
+Saved v2 presets contain native filter IDs and selected target metadata, then restore via original option handlers and exact-ID selection. The introduction visibility is persistent; hidden content reflows the layout. Positions skip invalid sentinel values and are rendered under the rating. Pinned-card enrichment requires the same definition ID or the verified base edition.
+
+New tests use the original native search/price/bid contracts with synthetic transport and real browser worlds. They do not prove an installed extension on the user's live EA account, nor that the same visible live error can never occur for a genuine EA server rejection or navigation change.
+
+---
+
 # v3.7.0 player rotation, local freshness and workspace controls
 
 Local market cache eviction is explicit before native eSearchSelected (which also evicts it) and before native page requests. Rapid manual clicks are coalesced into one trailing request; requests never intentionally overlap, stale generations cannot replace current results, and partial/cancelled responses remain hidden. No bid-price jitter or raw UTAS parameter/cache manipulation was added. A fresh observable event does not prove bypass of EA server caches or indexing delays. The player-name picker is a local catalogue and is expected to return the same matching players.

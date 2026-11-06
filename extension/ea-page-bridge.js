@@ -10,7 +10,7 @@
   const is = (o, ctor) => typeof ctor === 'function' && o instanceof ctor;
   const fail = (code, message) => { throw Object.assign(new Error(message), {code}); };
   const sleep = ms => new Promise(resolve => setTimeout(resolve, ms));
-  let picker = null, activeSearch = null, sequence = 0;
+  let picker = null, activeSearch = null, sequence = 0, activeCommand=null, cancelEpoch=0;
   const playerPools=new Map(),editionCache=new Map(),attemptedTrades=new Set();
   let batch=null,session=null,activePurchase=null,lastFingerprint=null;
   function context() {
@@ -34,7 +34,7 @@
       ? window.services.TransferMarket.isFeatureEnabledForUser() === true : false;
     return {mode:'page-functions', appReady:c.game, marketAllowed,
       controller:text(c.controller?.constructor?.name), hasForm:isFilter(c.controller),
-      hasResults:Boolean(resultController(c.controller)), busy:Boolean(activeSearch||activePurchase),
+      hasResults:Boolean(resultController(c.controller)), busy:Boolean(activeCommand||activeSearch||activePurchase),
       capabilities:{navigation:typeof c.root?.setGameViewTab === 'function',
         filters:typeof window.UTMarketSearchFiltersViewController === 'function',
         search:typeof window.UTMarketSearchFiltersViewController?.prototype?.eSearchSelected === 'function',
@@ -58,6 +58,7 @@
     return c;
   }
   async function connect() {
+    const epoch=cancelEpoch,guard=()=>{if(epoch!==cancelEpoch)fail('CANCELLED','Native navigation stopped.');};
     let ctx = gate();
     if (!isFilter(ctx.controller)) {
       const tag = window.UTGameTabBarController?.TabTag?.TRANSFERS;
@@ -65,11 +66,11 @@
       // Use EA's own tab and controller stack, as in its AUCTION deep link.
       if (ctx.nav?.tabBarItem?.getTag?.() !== tag) ctx.root.setGameViewTab(tag);
       for (let i=0; i<30; i++) {
-        ctx = gate();
+        guard();ctx = gate();
         if (is(ctx.nav, window.UTNavigationController) && !ctx.nav.isTransitioning) break;
         await sleep(100);
       }
-      if (!is(ctx.nav, window.UTNavigationController) || ctx.nav.isTransitioning)
+      guard();if (!is(ctx.nav, window.UTNavigationController) || ctx.nav.isTransitioning)
         fail('NAV_NOT_READY', 'Native Transfers navigation did not become ready.');
       if (!isFilter(ctx.controller)) {
         const existing = ctx.nav.childViewControllers?.find(isFilter);
@@ -231,9 +232,17 @@
     return {ok:true,snapshot:readFilters()};
   }
   function position(item){
-    const data=item?.getStaticData?.(),raw=item?.preferredPosition??item?.position??data?.preferredPosition??data?.position;
-    const label=typeof raw==='string'?raw.toUpperCase():window.PlayerPosition?.[raw];
-    return typeof label==='string'&&/^(GK|SW|RWB|RB|CB|LB|LWB|CDM|CM|CAM|RM|LM|RW|LW|CF|ST)$/.test(label)?label:'';
+    const data=item?.getStaticData?.();
+    for(const raw of [item?.preferredPosition,item?.position,data?.preferredPosition,data?.position]){
+      const numeric=typeof raw==='number'||typeof raw==='string'&&/^\d+$/.test(raw);
+      const label=numeric?window.PlayerPosition?.[Number(raw)]:typeof raw==='string'?raw.toUpperCase():null;
+      if(typeof label==='string'&&/^(GK|SW|RWB|RB|CB|LB|LWB|CDM|CM|CAM|RM|LM|RW|LW|CF|ST)$/.test(label))return label;
+    }
+    return '';
+  }
+  function changedView(){
+    const notice=[...document.querySelectorAll('[role="alert"],.ut-notification-queue,.ut-notification-view')].find(el=>el.getClientRects().length)?.textContent?.trim();
+    return 'EA closed or changed its results view before a confirmed response.'+(notice?' EA notice: '+text(notice):' Reconnect and scan again; no old listings were used.');
   }
   function itemSummary(item) {
     const s=item.getStaticData?.(), auction=item.getAuctionData?.();
@@ -267,16 +276,16 @@
           const fingerprint=JSON.stringify(summaries.map(x=>[x.tradeId,x.price]).sort((a,b)=>String(a[0]).localeCompare(String(b[0]))));
           const identical=lastFingerprint?.criteriaKey===snapshot.criteriaKey&&lastFingerprint.value===fingerprint;
           lastFingerprint={criteriaKey:snapshot.criteriaKey,value:fingerprint};
-          batch={id:generation,top,at:receivedAt,itemTimes,criteriaKey:snapshot.criteriaKey,items:new Map(items.map(item=>[String(item.getAuctionData().tradeId),item]))};
+          batch={id:generation,top:context().controller,nav:ctx.nav,results,at:receivedAt,itemTimes,criteriaKey:snapshot.criteriaKey,items:new Map(items.map(item=>[String(item.getAuctionData().tradeId),item]))};
           resolve({ok:true,searchId:generation,items:summaries,count:items.length,requested:limit,pages,pageSize,endOfList:ended,
-            startedAt,receivedAt,localCacheCleared:true,freshEvent:true,identicalToPrevious:identical,filtersUnchanged:true,duplicateTradesRemoved:Math.max(0,rawRows-found.size)});
+            startedAt,receivedAt,localCacheCleared:true,freshEvent:true,identicalToPrevious:identical,filtersUnchanged:true,duplicateTradesRemoved:Math.max(0,rawRows-found.size),nativePrices:snapshot.prices});
         }catch(e){batch=null;reject(Object.assign(new Error('EA result item format changed.'),{code:'UNSUPPORTED'}));}
       };
       const armTimeout=()=>{clearTimeout(timer);timer=setTimeout(()=>finish(Object.assign(new Error('No confirmed fresh EA result event.'),{code:'SEARCH_TIMEOUT'})),10000);};
       activeSearch={cancel:()=>finish(Object.assign(new Error('Search stopped.'),{code:'CANCELLED'}))};
       results.onDataChange.observe(observer,function(_observable,data){
         try{
-          gate();if(context().controller!==top)fail('VIEW_CHANGED','EA view changed during search.');
+          gate();if(context().nav!==ctx.nav||resultController(context().controller)!==results)fail('VIEW_CHANGED',changedView());
           if(!Array.isArray(data?.items))fail('UNSUPPORTED','EA result event changed.');
           pages++;const before=found.size;
           // EA overfetches one sentinel row: it belongs to the next page, not this one.
@@ -288,10 +297,10 @@
           if(ended||found.size>=limit){finish();return;}
           if(typeof results._requestItems!=='function')fail('UNSUPPORTED','EA native pagination is unavailable.');
           // Defer until EA finishes updating its own page model after onDataChange.
-          clearTimeout(timer);nextTimer=setTimeout(()=>{try{gate();if(context().controller!==top)fail('VIEW_CHANGED','EA results changed.');page++;window.services.Item.clearTransferMarketCache();armTimeout();results._requestItems(page);}catch(e){finish(e);}},0);
+          clearTimeout(timer);nextTimer=setTimeout(()=>{try{gate();if(context().nav!==ctx.nav||resultController(context().controller)!==results)fail('VIEW_CHANGED',changedView());page++;window.services.Item.clearTransferMarketCache();armTimeout();results._requestItems(page);}catch(e){finish(e);}},0);
         }catch(e){finish(e);}
       });
-      armTimeout();poll=setInterval(()=>{try{gate();if(context().nav!==ctx.nav||context().controller!==top)fail('VIEW_CHANGED','EA view changed during search.');}catch(e){finish(e);}},200);
+      armTimeout();poll=setInterval(()=>{try{gate();if(context().nav!==ctx.nav||resultController(context().controller)!==results)fail('VIEW_CHANGED',changedView());}catch(e){finish(e);}},200);
     });
   }
   function observeNative(observable,timeout=10000){
@@ -356,7 +365,7 @@
   async function buy(args){
     const ctx=gate(),current=session;
     if(!current||current.id!==args.sessionId||current.cancelled||current.uncertain||!current.autoBuy)fail('SESSION_INVALID','Native Auto Buy session is not active.');
-    if(!batch||batch.id!==args.searchId||batch.top!==ctx.controller||batch.criteriaKey!==current.criteriaKey||Date.now()-batch.at>30000)fail('STALE_LISTING','Refresh the market; this native result batch is no longer current.');
+    if(!batch||batch.id!==args.searchId||(batch.nav!==ctx.nav||batch.results!==resultController(ctx.controller))||batch.criteriaKey!==current.criteriaKey||Date.now()-batch.at>30000)fail('STALE_LISTING','Refresh the market; this native result batch is no longer current.');
     if(batch.itemTimes.has(String(args.tradeId))&&Date.now()-batch.itemTimes.get(String(args.tradeId))>30000)fail('STALE_LISTING','This listing page is older than 30 seconds; scan again.');
     const item=batch.items.get(String(args.tradeId));if(!item)fail('LISTING_MISMATCH','Trade ID is not in the native response.');
     const card=itemSummary(item),auction=item.getAuctionData();
@@ -405,17 +414,17 @@
     finally{activePurchase=null;}
   }
   const handlers={status,connect,readFilters,options:a=>options(a.kind,a.refresh===true),choose,players:a=>players(a.query),selectPlayer,clearPlayer,
-    editions:async a=>{const snap=readFilters(),id=snap.player?.id;if(!id)fail('PLAYER_REQUIRED','Select an EA player first.');const result=await playerEditions(id,a.refresh===true);return {...result,playerId:id};},applyPrices,search,beginSession,updateQuote,rotateTarget,buy,cancel:()=>{if(session)session.cancelled=true;activeSearch?.cancel();picker=null;return {ok:true};}};
+    editions:async a=>{const snap=readFilters(),id=snap.player?.id;if(!id)fail('PLAYER_REQUIRED','Select an EA player first.');const result=await playerEditions(id,a.refresh===true);return {...result,playerId:id};},applyPrices,search,beginSession,updateQuote,rotateTarget,buy,cancel:()=>{cancelEpoch++;if(session)session.cancelled=true;activeSearch?.cancel();picker=null;return {ok:true};}};
   window.addEventListener('message',async event=>{
     const m=event.data;
     if(event.source!==window || event.origin!==location.origin || !m || m.channel!==CHANNEL || m.direction!=='request')return;
     if(typeof m.id!=='string'||m.id.length>100||typeof m.command!=='string')return;
-    let reply;
+    let reply,ownsCommand=false;
     try {
       if(!Object.hasOwn(handlers,m.command))fail('UNKNOWN_COMMAND','Unsupported bridge operation.');
-      if((activeSearch||activePurchase)&&!['status','cancel'].includes(m.command))fail('BUSY','A native search is already pending.');
+      if(!['status','cancel'].includes(m.command)){if(activeCommand||activeSearch||activePurchase)fail('BUSY','Another native operation is still pending; it cannot change the view during search.');activeCommand={id:m.id,command:m.command};ownsCommand=true;}
       reply={ok:true,result:await handlers[m.command](m.args||{})};
-    }catch(e){reply={ok:false,error:{code:text(e.code)||'EA_ERROR',message:text(e.message)||'Native operation failed.'}};}
+    }catch(e){reply={ok:false,error:{code:text(e.code)||'EA_ERROR',message:text(e.message)||'Native operation failed.'}};}finally{if(ownsCommand&&activeCommand?.id===m.id)activeCommand=null;}
     window.postMessage({channel:CHANNEL,direction:'response',id:m.id,...reply},location.origin);
   });
 })();

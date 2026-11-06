@@ -60,5 +60,5 @@
     }
     return Object.freeze({get});
   }
-  const api=Object.freeze({createClient,coins,cap,TTL});if(typeof module==='object'&&module.exports)module.exports=api;else root.CodexPrices=api;
+  const api=Object.freeze({createClient,coins,cap,TTL});const common=typeof module==='object'&&module.exports;if(common)module.exports=api;if(typeof window!=='undefined')window.CodexPrices=api;if(!common||typeof window!=='undefined')root.CodexPrices=api;
 })(globalThis);

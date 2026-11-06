@@ -53,6 +53,5 @@
     return [...map.values()];
   }
   const api=Object.freeze({present,resolvedName,identity,assetUrl,groups});
-  if(typeof module==='object'&&module.exports)module.exports=api;
-  else root.CodexEAOptions=api;
+  const common=typeof module==='object'&&module.exports;if(common)module.exports=api;if(typeof window!=='undefined')window.CodexEAOptions=api;if(!common||typeof window!=='undefined')root.CodexEAOptions=api;
 })(globalThis);
