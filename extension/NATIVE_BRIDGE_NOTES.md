@@ -1,3 +1,17 @@
+# v3.6.0 fresh scans, native pagination, provider references and destinations
+
+The uploaded v3.5 log contains repeated “Native search controller is not current” errors and a lowest-price read of a previous five-item result. The old capture/lowest buttons only read memory; they did not dispatch a search. The unified manual scan now reconnects the current filter controller, applies current prices and invokes native eSearchSelected. Native option pickers also reconnect when invoked from the results screen.
+
+compiled_3.js defines eSearchSelected with services.Item.clearTransferMarketCache before opening results. UTMarketSearchResultsViewController._requestItems(page) calls the game's searchTransferMarket, emits onDataChange, trims an overfetched sentinel to paginationViewModel.getNumItemsPerPage(), updates its page model, and falls back to the previous page when a later page is empty. The adapter observes fresh events, trims the sentinel, defers pagination until EA finishes its page update, deduplicates by Trade ID and stops on exhaustion/repeated page. It never changes Min Bid or manufactures a different result. Fresh event/local cache eviction do not establish that EA's server bypassed all caches. Multiple pages are not an atomic market snapshot.
+
+The batch retains actual EA items from all collected pages and the current controller identity; the purchase wrapper is unchanged. Native move evidence is compiled_2.js UTItemActionController.move(item, ItemPile.CLUB / TRANSFER), returning the observable from services.Item.move. A successful response must include the purchased instance ID in data.itemIds. Purchase receipt accounting precedes optional moving; move errors are returned separately and cannot trigger a second bid. Cancellation prevents a move which has not yet been dispatched.
+
+Public provider routes/formats were reviewed in uploaded Deep Snipe source. The new adapters do not integrate its engine, session extraction, interception or provider/platform fallback. FUT.GG signing is a normal public price-access request, stops on challenges and validates the returned URL against the requested exact IDs/platform and fixed HTTPS route. Futbin prices require the requested platform's LCPrice. An omitted, extinct, malformed or failed quote is not zero and never becomes another edition/platform's quote. Retrieval time is known; provider update time is not. Quotes expire after 90 seconds and are renewed during sessions; the original user-entered Max Buy Now remains the immutable hard ceiling.
+
+Runtime network policy rejected CONNECT to www.fut.gg and www.futbin.com with HTTP 403 in this environment. Price adapters were validated with mocked fetch/browser messages, not live provider responses. Their domains were added only to the environment configuration draft, which was not published. No live EA bid/move was executed. Existing browser-world/source contracts plus new scan/pagination/cancellation/reference/move regressions pass with synthetic transport. The installed extension itself remains unverified in this Chromium.
+
+---
+
 # v3.5.0 native purchase and catalogue contracts
 
 The uploaded 3.4.2 log confirmed a response of nine listings followed by a failed DOM identity bridge. The purchase stage must use original native objects rather than recover them from CSS rows.

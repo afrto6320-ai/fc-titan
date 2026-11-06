@@ -6,15 +6,15 @@ window.SearchType={ANY:'any',PLAYER:'player'};
 window.SearchCategory={ANY:'any'};
 window.ItemIdMask={DATABASE:0xffffff};
 window.AssetLocationUtils={getPortraitImageUri:id=>'/test-portraits/'+id+'.svg'};
-window.GameCurrency={COINS:'coins'};window.ItemPile={PURCHASED:5};window.MAX_NEW_ITEMS=50;
+window.GameCurrency={COINS:'coins'};window.ItemPile={PURCHASED:5,CLUB:1,TRANSFER:2};window.MAX_NEW_ITEMS=50;
 window.repositories={Item:{numItemsInCache:()=>0}};
 window.HttpStatusCode={RATE_LIMIT:429};window.UtasErrorCode={NO_TRADE_EXISTS:460,STATE_INVALID:461};
-window.UINotificationType={NEGATIVE:'negative'};
+window.UINotificationType={NEGATIVE:'negative',NEUTRAL:'neutral'};
 window.__bidCalls=0;window.__bidScenario='won';window.__bidDelay=30;
 window.UTItemActionController=class UTItemActionController {};
 window.UTSearchCriteriaDTO=class UTSearchCriteriaDTO {constructor(){this.offset=0;this.count=20;}};
 window.UTServerSettingsRepository={KEY:{PLATFORM_SPLIT_FOR_TRANSFER_MARKET:'split'}};
-window.JSUtils={isValid:x=>x!==null&&x!==undefined};
+window.JSUtils={isValid:x=>x!==null&&x!==undefined,isObject:x=>x!==null&&typeof x==='object'};
 window.isPhone=()=>false;
 window.services={
   TransferMarket:{isFeatureEnabledForUser:()=>window.__testMarketAllowed},
@@ -48,7 +48,7 @@ window.services.Item.bid=(item,price)=>{
 };
 window.resetTrade=(tradeId='trade-1')=>{
   const auction={tradeId,buyNowPrice:900,won:false,canBuy:coins=>!auction.won&&coins>=auction.buyNowPrice,getSecondsRemaining:()=>auction.won?0:60,isWon:()=>auction.won};
-  const item={id:123456,definitionId:50540979,databaseId:209331,rating:91,rareflag:12,getStaticData:()=>({commonName:'Mohamed Salah'}),getAuctionData:()=>auction};
+  const item={isPlayer:()=>true,isManager:()=>false,id:123456,definitionId:50540979,databaseId:209331,rating:91,rareflag:12,getMarketAverage:()=>window.__testAverage||null,getStaticData:()=>({commonName:'Mohamed Salah'}),getAuctionData:()=>auction};
   window.__testItems=[item];return item;
 };
 const player={id:209331,commonName:'Mohamed Salah',rating:91};
@@ -104,9 +104,10 @@ window.UTMarketSearchFiltersViewController=class UTMarketSearchFiltersViewContro
   getNavigationController(){return window.__nav;}
 };
 window.UTMarketSearchResultsViewController=class UTMarketSearchResultsViewController {
-  constructor(){this.onDataChange=new Observable();}
+  constructor(){this.onDataChange=new Observable();this.paginationViewModel={getNumItemsPerPage:()=>20};}
   initWithSearchCriteria(criteria){this.searchCriteria=criteria;}
-  load(){window.__testSearches++;setTimeout(()=>this.onDataChange.notify({items:window.__testItems}),window.__testDelay);}
+  load(){window.__testSearches++;this._requestItems(1);}
+  _requestItems(page){window.__testPageRequests=(window.__testPageRequests||[]);window.__testPageRequests.push(page);setTimeout(()=>this.onDataChange.notify({items:window.__testPages?.[page-1]??window.__testItems}),window.__testDelay);}
 };
 window.UTMarketSearchResultsSplitViewController=class UTMarketSearchResultsSplitViewController {
   constructor(){this._listController=new UTMarketSearchResultsViewController();}
@@ -129,4 +130,6 @@ window.__nav=new UTNavigationController();
 window.__tabs=new UTGameTabBarController();
 window.__root={getPresentedViewController:()=>window.__testLogin?null:__tabs,
   setGameViewTab:tag=>{window.__testNavCalls=(window.__testNavCalls||0)+1;__nav.tag=tag;}};
-window.getAppMain=()=>({getRootViewController:()=>__root});
+window.getAppMain=()=>({getRootViewController:()=>__root,getNetworkErrorController:()=>({checkCriticalStatus:()=>false,handleStatus:()=>{}})});
+
+window.__moveCalls=0;window.services.Item.move=(item,pile)=>{window.__moveCalls++;window.__lastMovePile=pile;const out=new Observable();setTimeout(()=>out.notify(window.__moveFailed?{success:false,status:400}:{success:true,data:{itemIds:[Number(item.id)]}}),20);return out;};

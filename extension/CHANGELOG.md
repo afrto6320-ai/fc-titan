@@ -1,3 +1,11 @@
+# 3.6.0
+- Merge results and minimum into a full-page vertical market view; manual Scan dispatches a fresh native search using current filters instead of reading the previous batch.
+- Add user-selected 1–100 results with native pagination, sentinel trimming, Trade ID deduplication, response provenance and repeated-response disclosure. Clear listings and minimum on empty/error/cancelled scans.
+- Animate the cycle indicator independently during pending search/purchase; retain real countdowns and the stopped monotonic clock. Rename interval inputs to Speed from / to and explain total budget versus per-card price.
+- Add isolated public FUT.GG/Futbin price adapters with exact edition/platform binding, bounded caching/renewal, provider errors and a percentage-based search ceiling capped by manual Max Buy Now. Live provider access remains unverified due to environment network denial.
+- Replace expected resale input with leave / Club / Transfer List destinations using the original native move action after confirmed purchase. Move failures preserve the purchase receipt and never retry a bid.
+- Extend source-contract/browser tests for paginated manual scans, cancellation, fresh identical/empty responses, quote binding/caps and successful/failed native moves; add provider fixture tests.
+
 # 3.5.0
 - Scope events to verified selected-player concept editions intersected with supported native filters; disclose catalogue failures instead of substituting a general list.
 - Replace native-search/DOM-purchase linking with a MAIN-world session and UTItemActionController.bid on the exact returned item object.

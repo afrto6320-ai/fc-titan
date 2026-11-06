@@ -2,7 +2,7 @@
   "manifest_version": 3,
   "name": "CODEX SNIPE | FC Web App",
   "short_name": "CODEX SNIPE",
-  "version": "3.5.0",
+  "version": "3.6.0",
   "description": "Embedded FC catalogue and native UI market connector, original option browser, compatibility diagnostics and search pacing.",
   "minimum_chrome_version": "111",
   "permissions": [
@@ -12,7 +12,8 @@
   "host_permissions": [
     "https://www.ea.com/*",
     "https://www.fut.gg/*",
-    "https://raw.githubusercontent.com/*"
+    "https://raw.githubusercontent.com/*",
+    "https://www.futbin.com/*"
   ],
   "icons": {
     "16": "assets/icon16.png",
@@ -29,7 +30,7 @@
     }
   },
   "background": {
-    "service_worker": "background.js",
+    "service_worker": "service-worker.js",
     "type": "module"
   },
   "content_scripts": [
@@ -53,6 +54,7 @@
       ],
       "run_at": "document_idle",
       "js": [
+        "price-providers.js",
         "trade-core.js",
         "ea-options.js",
         "snipe-core.js",

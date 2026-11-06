@@ -36,6 +36,7 @@ def extract_method(name,text=source,owner='UTMarketSearchFiltersViewController')
 
 contracts='\n'.join(extract_method(name) for name in methods)
 contracts+='\n'+extract_method('bid',(SOURCE/'compiled_2.js').read_text(),'UTItemActionController')
+contracts+='\n'+extract_method('move',(SOURCE/'compiled_2.js').read_text(),'UTItemActionController')
 prefix=(ROOT/'tests/fixture33.html').read_text().split('<script>')[0]
 html=prefix+'<script>'+(ROOT/'tests/ea_harness.js').read_text()+'\n'+contracts+'</script></body></html>'
 URL='https://www.ea.com/ea-sports-fc/ultimate-team/web-app/'
@@ -58,7 +59,7 @@ with sync_playwright() as p:
     stale={'name':'Mohamed Salah','rating':88,'itemId':50540979,'playerId':None,'source':'futgg','key':'item:50540979'}
     stored={'gpts_embedded_v3':{'selected':stale,'selectedTargets':[stale],'settings':{'player':'Mohamed Salah','itemId':'50540979'}}}
     shim='window.chrome={runtime:{getURL:()=>'+json.dumps(css)+',sendMessage:async()=>{throw Error("Unexpected external catalogue request")}},storage:{local:{get:async()=>('+json.dumps(stored)+'),set:async()=>{}}}};'
-    scripts=['snipe-core.js','trade-core.js','ea-options.js','ea-page-client.js','native-market.js','embedded.js']
+    scripts=['price-providers.js','snipe-core.js','trade-core.js','ea-options.js','ea-page-client.js','native-market.js','embedded.js']
     loaded=cdp.send('Runtime.evaluate',{'contextId':world,'expression':shim+'\n'+'\n'.join((ROOT/name).read_text() for name in scripts)})
     assert 'exceptionDetails' not in loaded,loaded
     def request(command,args=None):
@@ -185,7 +186,7 @@ with sync_playwright() as p:
     print('PASS: native action-controller bid with exact EA object, confirmed isWon receipt, no general warning')
 
     page.evaluate("resetTrade('loss-declined')")
-    sh.locator('#referencePrice').fill('700');sh.locator('#start').click()
+    page.evaluate('window.__testAverage=700');sh.locator('#start').click()
     page.wait_for_function("document.querySelector('#gpts-v3-host').shadowRoot.querySelector('#sessionStatus').textContent.includes('الخسارة')")
     assert len(dialogs)==1 and page.evaluate('__bidCalls')==1
     assert sh.locator('#buyCount').inner_text()=='0'
@@ -196,7 +197,7 @@ with sync_playwright() as p:
     print('PASS: >10% after-tax loss confirmation only, declined purchase sends no bid, accepted risk matches the same trade')
 
     # An already-dispatched purchase completes after Stop and must still be accounted once.
-    sh.locator('#referencePrice').fill('');page.evaluate("resetTrade('stopped-purchase');window.__bidDelay=1300")
+    page.evaluate('window.__testAverage=null');page.evaluate("resetTrade('stopped-purchase');window.__bidDelay=1300")
     sh.locator('#start').click();page.wait_for_function('__bidCalls===3')
     sh.locator('#stop').click()
     page.wait_for_function("document.querySelector('#gpts-v3-host').shadowRoot.querySelector('#buyCount').textContent==='1'")
@@ -288,6 +289,102 @@ with sync_playwright() as p:
     assert 'fail' not in (result_check.get_attribute('class') or '')
     assert sh.locator('h1').inner_text()=='CODEX SNIPE'
     print('PASS: duplicate IDs removed, distinct clubs retained, missing names disclosed, native badge fallback, correct ID selected, branding')
+
+    # A fresh scan gathers native pages, omits overfetch sentinels, and does not buy.
+    sh.locator('#resultsCount').fill('37')
+    page.evaluate("""(() => {
+      const template=resetTrade('pagination-base');
+      const rows=Array.from({length:45},(_,i)=>({...template,id:123456+i,getAuctionData:()=>({tradeId:'page-trade-'+i,buyNowPrice:1000-i*10})}));
+      window.__testPages=[rows.slice(0,21),rows.slice(20,41),rows.slice(40)];window.__testPageRequests=[];window.__testDelay=400;
+    })()""")
+    before=page.evaluate('({cache:__testCacheClears,bids:__bidCalls})')
+    sh.locator('#scanMarket').click()
+    offset=sh.locator('#cycleRing').evaluate('(e)=>e.style.strokeDashoffset')
+    page.wait_for_function('(old)=>document.querySelector("#gpts-v3-host").shadowRoot.querySelector("#cycleRing").style.strokeDashoffset!==old',arg=offset)
+    sh.locator('.market-card').nth(36).wait_for()
+    assert sh.locator('.market-card').count()==37
+    assert sh.locator('#lowestPriceValue').inner_text()=='640 Coins'
+    assert page.evaluate('__testPageRequests')==[1,2]
+    assert page.evaluate('__testCacheClears')==before['cache']+1 and page.evaluate('__bidCalls')==before['bids']
+    assert '37/37' in sh.locator('#marketResponse').inner_text()
+    assert 'market-full' in sh.locator('#marketPanel').get_attribute('class')
+    assert sh.locator('.market-card').first.locator('.market-portrait img').count()==1
+    assert sh.locator('.market-card[data-trade-id="page-trade-20"]').count()==1
+    page.screenshot(path='/tmp/CODEX_SNIPE_v3.6.0_market.png')
+    old_response=sh.locator('#marketResponse').inner_text()
+    sh.locator('#scanMarket').click()
+    page.wait_for_function('(old)=>{const s=document.querySelector("#gpts-v3-host").shadowRoot;return !s.querySelector("#scanMarket").disabled&&s.querySelector("#marketResponse").textContent!==old;}',arg=old_response)
+    assert sh.locator('.market-card').count()==37
+    assert 'نفس العروض' in sh.locator('#marketResponse').inner_text()
+    page.evaluate('window.__testPages=[[]]')
+    sh.locator('#scanMarket').click()
+    page.wait_for_function("()=>{const s=document.querySelector('#gpts-v3-host').shadowRoot;return !s.querySelector('#scanMarket').disabled&&s.querySelector('#marketResponse').textContent.includes('0/37');}")
+    assert sh.locator('.market-card').count()==0 and sh.locator('#lowestPriceValue').inner_text()=='—'
+    assert 'لا توجد عروض' in sh.locator('#nativeOffers').inner_text()
+    # Change filters while the native controller is the result screen.
+    sh.locator('#marketFull').click()
+    sh.locator('[data-native-picker="quality"]').click();sh.locator('.native-option').filter(has_text='Gold').wait_for()
+    assert page.evaluate('__nav.currentController instanceof UTMarketSearchFiltersViewController')
+    print('PASS: manual scan makes fresh requests, paginates 37 real rows, deduplicates sentinel, updates minimum, reports repeated offers, clears on empty, reconnects pickers')
+
+    # Cancel during native pagination: no partial batch is exposed as a completed scan.
+    sh.locator('#resultsCount').fill('100')
+    page.evaluate("""(() => {
+      const item=resetTrade('cancel-page');
+      const rows=Array.from({length:41},(_,i)=>({...item,id:123456+i,getAuctionData:()=>({tradeId:'cancel-page-'+i,buyNowPrice:900})}));
+      window.__testPages=[rows.slice(0,21),rows.slice(20,41),rows.slice(40)];window.__testPageRequests=[];window.__testDelay=500;
+    })()""")
+    sh.locator('#scanMarket').click();page.wait_for_function('__testPageRequests.includes(2)');sh.locator('#stop').click();page.wait_for_timeout(700)
+    assert sh.locator('.market-card').count()==0 and sh.locator('#lowestPriceValue').inner_text()=='—'
+    assert page.evaluate('__testPageRequests')==[1,2] and page.evaluate('__testObservers.size')==0
+    sh.locator('#resultsCount').fill('20')
+    print('PASS: Stop during pagination detaches the observer, clears partial results and prevents the next page')
+
+    # Selected external source drives the cap; the native Max Buy Now remains a hard ceiling.
+    page.evaluate('window.__testPages=undefined;window.__testDelay=50;window.__testItems=[]')
+    mock_prices="""window.__priceCalls=[];chrome.runtime.sendMessage=async m=>{window.__priceCalls.push(m);if(window.__priceFail)return {ok:false,error:'provider unavailable test'};const p=m.payload;return {ok:true,result:{quotes:[{provider:p.provider,platform:p.platform,itemId:p.ids[0],price:1200,retrievedAt:Date.now(),providerUpdatedAt:null}]}};};"""
+    cdp.send('Runtime.evaluate',{'contextId':world,'expression':mock_prices})
+    sh.locator('#loadEditions').click();sh.locator('#priceEdition option[value="50540979"]').wait_for(state='attached')
+    sh.locator('#priceEdition').select_option('50540979');page.wait_for_function("()=>!document.querySelector('#gpts-v3-host').shadowRoot.querySelector('#priceEdition').disabled");sh.locator('#priceSource').select_option('futbin');sh.locator('#pricePlatform').select_option('pc');sh.locator('#pricePercent').fill('75')
+    sh.locator('#maxSearches').fill('1');sh.locator('#start').click()
+    page.wait_for_function('window.__nativeMaxBin===900')
+    page.wait_for_function("()=>!document.querySelector('#gpts-v3-host').shadowRoot.querySelector('#start').disabled")
+    assert 'FUTBIN' in sh.locator('#quoteBox').inner_text() and '1,200' in sh.locator('#quoteBox').inner_text()
+    assert sh.locator('#maxBin').input_value()=='1000'
+    baseline=page.evaluate('__testSearches')
+    cdp.send('Runtime.evaluate',{'contextId':world,'expression':'window.__priceFail=true'})
+    sh.locator('#start').click();page.wait_for_timeout(250)
+    assert page.evaluate('__testSearches')==baseline
+    assert 'provider unavailable test' in sh.locator('#logs').inner_text()
+    cdp.send('Runtime.evaluate',{'contextId':world,'expression':'window.__priceFail=false'})
+    sh.locator('#priceSource').select_option('manual');sh.locator('#itemId').fill('');sh.locator('#pricePercent').fill('100')
+    print('PASS: exact-edition/PC provider quote sets effective search cap, manual Max Buy Now stays intact, provider failure prevents starting')
+
+    # MAIN rejects stale/wrong-edition quotes and limits renewed quotes to the hard Max Buy Now.
+    snap=request('connect')['result']['snapshot']
+    fresh_quote={'provider':'futbin','platform':'pc','itemId':50540979,'price':1200,'retrievedAt':page.evaluate('Date.now()')}
+    session_args={'criteriaKey':snap['criteriaKey'],'maxPrice':900,'hardMaxPrice':1000,'maxSpend':10000,'maxBuys':1,'autoBuy':True,'itemId':50540979,'referenceQuote':fresh_quote,'referencePrice':1200}
+    assert request('beginSession',{**session_args,'referenceQuote':{**fresh_quote,'retrievedAt':fresh_quote['retrievedAt']-100000}})['code']=='QUOTE_STALE'
+    session_id=request('beginSession',session_args)['result']['sessionId']
+    assert request('updateQuote',{'sessionId':session_id,'quote':fresh_quote,'maxPrice':1100})['code']=='LIMIT'
+    assert request('updateQuote',{'sessionId':session_id,'quote':{**fresh_quote,'platform':'console'},'maxPrice':900})['code']=='QUOTE_STALE'
+    assert request('updateQuote',{'sessionId':session_id,'quote':{**fresh_quote,'itemId':209331},'maxPrice':900})['code']=='QUOTE_STALE'
+    assert request('updateQuote',{'sessionId':session_id,'quote':fresh_quote,'maxPrice':950})['ok']
+    request('cancel')
+    print('PASS: MAIN quote freshness, exact edition/platform and immutable hard price ceiling on renewal')
+
+    # Native post-purchase moves preserve the confirmed receipt on failure.
+    for destination,failed in [('club',False),('transfer',False),('club',True),('leave',False)]:
+        page.evaluate("""([destination,failed])=>{resetTrade('move-'+destination+'-'+failed);window.__bidScenario='won';window.__moveFailed=failed;}""",[destination,failed])
+        before=page.evaluate('({bids:__bidCalls,moves:__moveCalls})')
+        sh.locator('#postPurchase').select_option(destination);sh.locator('#autoBuy').check();sh.locator('#start').click()
+        page.wait_for_function("()=>{const s=document.querySelector('#gpts-v3-host').shadowRoot;return s.querySelector('#buyCount').textContent==='1'&&!s.querySelector('#start').disabled;}")
+        assert page.evaluate('__bidCalls')==before['bids']+1 and sh.locator('#spent').inner_text()=='900'
+        assert page.evaluate('__moveCalls')==before['moves']+(0 if destination=='leave' else 1)
+        if destination!='leave':assert page.evaluate('__lastMovePile')==({'club':1,'transfer':2}[destination])
+        if failed:assert 'النقل لم يتأكد' in sh.locator('#logs').inner_text()
+    sh.locator('#postPurchase').select_option('leave');sh.locator('#autoBuy').uncheck()
+    print('PASS: original EA action move sends confirmed item to Club/Transfer List, leave performs no move, failed move never retries or erases purchase')
 
     # A successful transport with no isWon state is uncertain, not a completed purchase.
     page.evaluate("resetTrade('uncertain-buy');window.__bidScenario='pending'")
