@@ -97,7 +97,7 @@
     const player = view?.getPlayerNameSearch?.()?.getSelected?.();
     const selections = {};
     for (const kind of Object.keys(keys)) {
-      try {const ctrl=control(kind);selections[kind]={id:number(ctrl.id),label:text(ctrl.label),enabled:ctrl.isInteractionEnabled?.() !== false};}
+      try {const ctrl=control(kind);selections[kind]={id:number(ctrl.id),label:window.CodexEAOptions?.resolvedName(ctrl.label)||`EA ${kind} #${ctrl.id}`,enabled:ctrl.isInteractionEnabled?.() !== false};}
       catch { selections[kind]=null; }
     }
     const criteriaKey=JSON.stringify([number(q.maskedDefId),Object.keys(keys).map(k=>selections[k]?.id??null),q.rarities||[]]);
@@ -109,26 +109,38 @@
     const ctrl = control(kind), entries = ctrl.getOptions();
     if (!Array.isArray(entries) || entries.length>10000) fail('UNSUPPORTED', 'Invalid native option collection.');
     const token = String(++sequence);
-    picker = {ctrl,entries,kind,token,owner:filters()};
-    return {ok:true,mode:'page-functions',token,options:entries.map((entry,index)=>{
-      const icon=ctrl.iconTable?.get?.(entry.value);
-      let image='';
-      try{if(typeof icon==='string'&&icon){const u=new URL(icon,location.href);if(u.protocol==='https:'&&!u.username&&!u.password)image=u.href;}}catch{}
-      return {index,id:number(entry.id),label:text(entry.label),image};
-    })};
+    const model=window.CodexEAOptions;
+    if(!model)fail('UNSUPPORTED','Reload the Web App to load the option adapter.');
+    const view=filters().getView()?.getFilters?.(),enumId=window.enums.UISearchFilters[keys[kind]];
+    const repo=window.factories?.DataProvider?.teamConfigRepo;
+    const lookup=new Map(),leagues=new Map();
+    // Read only native reference-data records, never account objects.
+    try{
+      for(const row of repo?.getLeagues?.()||[])leagues.set(Number(row.id),row.name);
+      const data=kind==='club'?repo?.getTeams?.():kind==='league'?repo?.getLeagues?.():kind==='nation'?repo?.getNations?.():[];
+      for(const row of data||[])lookup.set(Number(row.id),row);
+    }catch{}
+    const presented=model.present(entries,{kind,base:location.href,
+      getMetadata:entry=>{const row=lookup.get(Number(entry.id));return row?{name:row.name,leagueId:row.league,leagueLabel:leagues.get(row.league)}:null;},
+      getIcon:entry=>ctrl.iconTable?.get?.(entry.value),
+      getFallbackImage:entry=>{try{return view?.generateFilterImage?.(enumId,entry.id,entry.value)||'';}catch{return '';}},
+      getAlternateName:entry=>{try{return kind==='club'?window.UTLocalizationUtil?.teamIdToAbbr3?.(entry.id,window.services.Localization)||'':'';}catch{return '';}}
+    });
+    picker = {ctrl,entries,kind,token,owner:filters(),signatures:entries.map(model.identity),indices:new Set(presented.options.map(x=>x.index)),labels:new Map(presented.options.map(x=>[x.index,x.label]))};
+    return {ok:true,mode:'page-functions',token,...presented};
   }
   function choose(args) {
     const p=picker;
     if (!p || args.token!==p.token || p.owner!==filters() || control(p.kind)!==p.ctrl)
       fail('STALE_OPTIONS','Reopen the native filter list.');
-    if (!Number.isInteger(args.index) || !p.entries[args.index]) fail('BAD_ARGUMENT','Invalid option index.');
+    if (!Number.isInteger(args.index) || !p.indices.has(args.index)) fail('BAD_ARGUMENT','Invalid option index.');
     const current=p.ctrl.getOptions(), chosen=p.entries[args.index];
-    if (current.length!==p.entries.length || current.some((v,i)=>v.id!==p.entries[i].id || v.value!==p.entries[i].value))
+    if (current.length!==p.entries.length || current.some((v,i)=>window.CodexEAOptions.identity(v)!==p.signatures[i]))
       fail('STALE_OPTIONS','EA changed the filter options.');
     if (p.ctrl.isInteractionEnabled?.()===false) fail('FILTER_LOCKED','EA locked this filter for the current player/category.');
     p.ctrl.setIndex(args.index); // EA dispatches CHANGE and updates dependent filters itself.
     picker=null;
-    return {ok:true,label:text(chosen.label),snapshot:readFilters()};
+    return {ok:true,label:p.labels.get(args.index),snapshot:readFilters()};
   }
   function lookup(query) {
     if (typeof query!=='string'||query.trim().length<2||query.length>50) fail('BAD_ARGUMENT','Enter 2–50 characters.');

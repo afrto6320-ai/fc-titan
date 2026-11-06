@@ -1,3 +1,15 @@
+# v3.4.1 option provenance
+
+The uploaded user reports show successful MAIN-world connection, native player selection, filter updates, and nine confirmed empty searches in v3.4.0. They do not prove that every club name/logo resolves or that every filter has market listings.
+
+The original UTDataProviderFactory.getNationDP concatenates TOP_NINE_NATIONS with the full nation collection, which can repeat identities. Club entries are constructed from teamConfigRepo.getTeams using native team IDs and localized names; unresolved localization keys can therefore arrive from EA itself. Equal labels can also belong to different IDs.
+
+The new ea-options.js adapter keeps original native indices, removes duplicate ID/value identities, exposes ID/league provenance, and never fabricates a resolved name. Image candidates use only the native icon table and UTItemSearchView.generateFilterImage(enumId, entry.id, entry.value). Failed URLs are reported as unavailable rather than substituted with another team's badge.
+
+The source bundles and uploaded account reports remain outside the repository. The new release has only been exercised in local synthetic browser tests, not on a live account.
+
+---
+
 # Native bridge implementation notes
 
 The supplied archive contains real EA JavaScript and one rendered market-filter page. Vendor bundles, captured account pages, and API responses are deliberately excluded from this extension and its repository.

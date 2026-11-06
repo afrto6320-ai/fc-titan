@@ -46,6 +46,7 @@ with sync_playwright() as p:
     page=context.new_page();errors=[]
     page.on('pageerror',lambda e:errors.append(str(e)))
     page.goto(URL)
+    page.add_script_tag(content=(ROOT/'ea-options.js').read_text())
     page.add_script_tag(content=(ROOT/'ea-page-bridge.js').read_text())
     cdp=context.new_cdp_session(page)
     frame=cdp.send('Page.getFrameTree')['frameTree']['frame']['id']
@@ -149,6 +150,44 @@ with sync_playwright() as p:
     page.evaluate('__nav.currentController.viewmodel.searchCriteria.league=13')
     assert request('choose',{'token':opts['token'],'index':1})['code']=='STALE_OPTIONS'
     print('PASS: fixed command allowlist, price/player/fingerprint validation, native locks, stale options')
+
+    # Reproduce reported club duplicates, unresolved translation keys and failed badges.
+    def badge(route):
+        if 'fallback' in route.request.url:
+            route.fulfill(status=200,content_type='image/svg+xml',body='<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24"><rect width="24" height="24" fill="green"/></svg>')
+        else: route.fulfill(status=404,body='')
+    page.route('**/test-badges/**',badge)
+    page.evaluate('''(() => {
+      const view=__nav.currentController.getView(),fields=view.getFilters(),ctrl=fields.searchFilters.get(enums.UISearchFilters.CLUB);
+      window.__badgeOptions=[{id:-1,value:'-1',label:'Any'},
+        {id:9,value:'9',label:'Same Club'},{id:9,value:'9',label:'Same Club'},
+        {id:10,value:'10',label:'Same Club'},{id:99,value:'99',label:'global.teamabbr15.2027.team99*'}];
+      ctrl.getOptions=()=>window.__badgeOptions.slice();ctrl.index=0;
+      ctrl.iconTable=new Map([['9','/test-badges/missing.png'],['10','/test-badges/also-missing.png']]);
+      view.getFilters=()=>({...fields,generateFilterImage:(kind,id)=>id===9?'/test-badges/fallback.svg':''});
+    })()''')
+    sh.locator('[data-native-picker="club"]').click()
+    sh.locator('.native-option[data-ea-id="9"]').wait_for()
+    assert sh.locator('.native-option[data-ea-id="9"]').count()==1
+    assert sh.locator('.native-option[data-ea-id="10"]').count()==1
+    assert sh.locator('.native-option[data-ea-id="99"]').count()==0
+    assert '1 duplicates removed' in sh.locator('#pickerStatus').inner_text() or '1 مكرر' in sh.locator('#pickerStatus').inner_text()
+    sh.locator('.native-option[data-ea-id="9"][data-image-state="loaded"]').wait_for()
+    sh.locator('.native-option[data-ea-id="10"][data-image-state="unavailable"]').wait_for()
+    assert sh.locator('.native-option[data-ea-id="10"] img').count()==0
+    sh.locator('#showUnresolvedOptions').check()
+    sh.locator('.native-option[data-ea-id="99"]').wait_for()
+    assert 'global.teamabbr' not in sh.locator('#nativePickerResults').inner_text()
+    sh.locator('.native-option-filter').fill('10')
+    assert sh.locator('.native-option').count()==1
+    sh.locator('.native-option').click()
+    page.wait_for_function('__nav.currentController.viewmodel.searchCriteria.club===10')
+    sh.locator('#compatPanel summary').click()
+    sh.locator('#runDiag').click()
+    result_check=sh.locator('.audit-row').filter(has_text='Result list container')
+    assert 'fail' not in (result_check.get_attribute('class') or '')
+    assert sh.locator('h1').inner_text()=='CODEX SNIPE'
+    print('PASS: duplicate IDs removed, distinct clubs retained, missing names disclosed, native badge fallback, correct ID selected, branding')
 
     page.evaluate('window.__testMarketAllowed=false')
     sh.locator('#connectEA').click()

@@ -2,9 +2,9 @@
 AI-powered EA FC Ultimate Team Trading Platform
 
 
-## GPT SNIPE browser extension
+## CODEX SNIPE browser extension
 
-Source: `extension/` (Manifest V3, v3.4.0). Load that directory as an unpacked extension, reload the FC Web App, then use **Connect to EA Market**.
+Source: `extension/` (Manifest V3, v3.4.1). Load that directory as an unpacked extension, reload the FC Web App, then use **Connect to EA Market**.
 
 See `extension/README_AR.md` for usage and known limitations and `extension/NATIVE_BRIDGE_NOTES.md` for the source contracts and validation evidence.
 

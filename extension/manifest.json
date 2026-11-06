@@ -1,8 +1,8 @@
 {
   "manifest_version": 3,
-  "name": "GPT SNIPE | FC Web App Embedded",
-  "short_name": "GPT SNIPE",
-  "version": "3.4.0",
+  "name": "CODEX SNIPE | FC Web App",
+  "short_name": "CODEX SNIPE",
+  "version": "3.4.1",
   "description": "Embedded FC catalogue and native UI market connector, original option browser, compatibility diagnostics and search pacing.",
   "minimum_chrome_version": "111",
   "permissions": [
@@ -20,7 +20,7 @@
     "128": "assets/icon128.png"
   },
   "action": {
-    "default_title": "GPT SNIPE",
+    "default_title": "CODEX SNIPE",
     "default_popup": "popup.html",
     "default_icon": {
       "16": "assets/icon16.png",
@@ -41,6 +41,7 @@
       "run_at": "document_idle",
       "world": "MAIN",
       "js": [
+        "ea-options.js",
         "ea-page-bridge.js"
       ]
     },
