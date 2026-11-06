@@ -35,7 +35,7 @@
   }
   function readSettingsSafe(){
     if(!shadow) return {};
-    return Object.fromEntries(['player','itemId','ratingMin','ratingMax','quality','position','club','league','nation','minBid','maxBid','minBin','maxBin','interval','maxSearches','maxBuys','budget','autoBuy','speedPreset','speedMin','speedMax','event','postPurchase','resultsCount','priceSource','pricePlatform','pricePercent','soundEnabled','bidLadder'].map(k=>[k,$(k)?.type==='checkbox'?$(k).checked:$(k)?.value||'']));
+    return Object.fromEntries(['player','itemId','ratingMin','ratingMax','quality','position','club','league','nation','minBid','maxBid','minBin','maxBin','interval','maxSearches','maxBuys','budget','autoBuy','speedPreset','speedMin','speedMax','event','postPurchase','resultsCount','priceSource','pricePlatform','pricePercent','soundEnabled','bidLadder','bidLadderCeiling'].map(k=>[k,$(k)?.type==='checkbox'?$(k).checked:$(k)?.value||'']));
   }
   function input(id){return $(id)?.value.trim()||'';}
   function numeric(id){return Number(input(id)||0);}
@@ -89,8 +89,9 @@
              <label class="field"><span>${tr('speedmax')}</span><input id="speedMax" type="number" min="0.6" max="60" step="0.1" value="5" disabled></label>
              <label class="field"><span>${tr('maxsearches')}</span><input id="maxSearches" type="number" min="1" max="300" value="30"></label>
              <label class="field"><span>${tr('maxbuys')}</span><input id="maxBuys" type="number" min="1" max="30" value="1"></label>
-             <label class="field full"><span>${state.language==='ar'?'سلم تغيير Max Bid':'Max Bid search ladder'}</span><select id="bidLadder"><option value="max" selected>${state.language==='ar'?'متدرج + بحث شامل كل 6 دورات':'Step up + broad search every 6 cycles'}</option><option value="off">${state.language==='ar'?'متوقف — استخدم القيم الثابتة':'Off — keep fixed bids'}</option></select></label>
-             <p id="bidCycleStatus" class="desc full">${state.language==='ar'?'السلم يغير Max Bid من سقف Buy Now لأعلى، ويرجع بدون حد دوريًا. Min Bid ثابت، وسقف الشراء لا يتغير.':'Max Bid steps upward from the Buy Now ceiling, with periodic uncapped bids. Min Bid and purchase limits stay fixed.'}</p>
+             <label class="field full"><span>${state.language==='ar'?'سلم تغيير Max Bid':'Max Bid search ladder'}</span><select id="bidLadder"><option value="max" selected>${state.language==='ar'?'تصاعدي حتى الحد المختار ثم بحث شامل':'Rise to the chosen limit, then broad search'}</option><option value="off">${state.language==='ar'?'متوقف — استخدم القيم الثابتة':'Off — keep fixed bids'}</option></select></label>
+             <label class="field full"><span>${state.language==='ar'?'نهاية سلم Max Bid (حتى 15 مليون)':'Max Bid ladder ceiling (up to 15 million)'}</span><input id="bidLadderCeiling" type="number" min="150" max="15000000" step="50" value="200000"></label>
+             <p id="bidCycleStatus" class="desc full">${state.language==='ar'?'السلم يرفع Max Bid حتى النهاية المختارة، ثم يبحث بدون حد ويبدأ من جديد. Min Bid ثابت، وسقف الشراء لا يتغير.':'Max Bid rises to the selected ceiling, then runs uncapped and starts again. Min Bid and purchase limits stay fixed.'}</p>
              <label class="field full"><span>${tr('budget')} (Coins)</span><input id="budget" type="number" min="150" value="10000"></label>
              <label class="field full"><span>${state.language==='ar'?'بعد تأكيد الشراء':'After confirmed purchase'}</span><select id="postPurchase"><option value="leave">${state.language==='ar'?'اتركه كما هو (Unassigned)':'Leave in Unassigned'}</option><option value="club">${state.language==='ar'?'إرساله للنادي':'Send to Club'}</option><option value="transfer">${state.language==='ar'?'إرساله لقائمة الانتقالات':'Send to Transfer List'}</option></select></label><p class="desc full">${state.language==='ar'?'ميزانية الجلسة تجمع كل المشتريات. Max Buy Now حد الكارت الواحد. سرعة من / إلى تحدد الفاصل بين بدايات البحث.':'Session budget caps total spending; Max Buy Now caps one card. Speed from / to sets the interval between search starts.'}</p>
            </div><p class="desc" style="margin-top:12px">${tr('speedhelp')}</p>
@@ -371,7 +372,7 @@
     for(const b of shadow.querySelectorAll('.target-card-select,.target-remove'))b.disabled=state.running||state.starting||state.scanning||state.editionUpdating;
     $('start').disabled=state.running||state.starting||state.scanning||state.editionUpdating;$('stop').disabled=!(state.running||state.starting||state.scanning);
     if($('scanMarket')){$('scanMarket').disabled=state.running||state.starting||state.editionUpdating;$('scanMarket').textContent=state.scanning?(state.scanQueued?(state.language==='ar'?'تحديث جديد في الانتظار':'Refresh queued'):(state.language==='ar'?'جارٍ الفحص — اضغط لطلب تحديث':'Scanning — click to refresh again')):(state.language==='ar'?'فحص السوق — بحث جديد':'Scan market — fresh search');}
-    for(const id of ['player','itemId','postPurchase','resultsCount','priceSource','pricePlatform','priceEdition','pricePercent','bidLadder','loadEditions','refreshQuote','autoBuy','budget','maxBuys','maxSearches','maxBin','minBin','minBid','maxBid','ratingMin','ratingMax'])if($(id))$(id).disabled=state.running||state.starting||state.scanning||state.editionUpdating;
+    for(const id of ['player','itemId','postPurchase','resultsCount','priceSource','pricePlatform','priceEdition','pricePercent','bidLadder','bidLadderCeiling','loadEditions','refreshQuote','autoBuy','budget','maxBuys','maxSearches','maxBin','minBin','minBid','maxBid','ratingMin','ratingMax'])if($(id))$(id).disabled=state.running||state.starting||state.scanning||state.editionUpdating;
     for(const button of shadow.querySelectorAll('[data-native-picker]'))button.disabled=state.running||state.starting||state.scanning||state.editionUpdating;
     $('runBadge').innerHTML=state.running?'<i></i> LIVE SCANNING':'<i></i> STANDBY';$('runBadge').className='pill'+(state.running?' green':'');
     $('sessionLabel').textContent=state.running?'ACTIVE SESSION':'SESSION INACTIVE';$('sessionStatus').textContent=state.running?'● SCANNING':`● ${state.status}`;
@@ -948,12 +949,16 @@
     if(state.pageMode){
       try{
         const maxBin=state.effectiveMaxPrice||numeric('maxBin'),base={minBid:numeric('minBid'),maxBid:numeric('maxBid'),minBin:numeric('minBin'),maxBin};
+        if(input('bidLadder')==='max'&&(!Number.isSafeInteger(numeric('bidLadderCeiling'))||numeric('bidLadderCeiling')<Math.max(150,maxBin,base.minBid,base.maxBid)||numeric('bidLadderCeiling')>15000000))throw Error('نهاية سلم Max Bid يجب ألا تقل عن بدايته، وحتى 15 مليون.');
         let ladder=null,key;
         if(cycle&&input('bidLadder')==='max'){
-          key=JSON.stringify([state.pageSnapshot?.criteriaKey,base]);state.bidCounts??=new Map();const index=state.bidCounts.get(key)||0;
+          const ceiling=numeric('bidLadderCeiling');key=JSON.stringify([state.pageSnapshot?.criteriaKey,base,ceiling]);state.bidCounts??=new Map();const index=state.bidCounts.get(key)||0;
           const compute=(window.CodexTradeCore||globalThis.CodexTradeCore)?.bidLadder;
-          if(typeof compute==='function')ladder=compute({enabled:true,index,maxBuyNow:maxBin,minBid:base.minBid,maxBid:base.maxBid});
-          else{const step=index%6,tick=n=>n<1000?50:n<10000?100:n<50000?250:n<100000?500:1000;let value=Math.max(150,maxBin,base.minBid,base.maxBid);value=Math.ceil(value/tick(value))*tick(value);for(let i=0;i<step;i++)value=Math.min(15000000,value+tick(value));ladder={minBid:base.minBid,maxBid:step===5?0:value,step,broad:step===5};}
+          if(typeof compute==='function')ladder=compute({enabled:true,index,maxBuyNow:maxBin,minBid:base.minBid,maxBid:base.maxBid,ceiling});
+          else{const tick=n=>n<1000?50:n<10000?100:n<50000?250:n<100000?500:1000;let value=Math.max(150,maxBin,base.minBid,base.maxBid);value=Math.ceil(value/tick(value))*tick(value);
+            if(!Number.isSafeInteger(ceiling)||ceiling<value||ceiling>15000000)throw Error('اختر نهاية سلم لا تقل عن قيمة بدايته، وحتى 15 مليون.');
+            const values=[];while(value<=ceiling&&values.length<16000){values.push(value);value+=tick(value);}const step=index%(values.length+1);ladder={minBid:base.minBid,maxBid:step===values.length?0:values[step],step,broad:step===values.length,cycleLength:values.length+1,ceiling};}
+
           base.maxBid=ladder.maxBid;
         }
         const report=await Page.request('applyPrices',base);

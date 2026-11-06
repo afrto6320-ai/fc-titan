@@ -1,5 +1,5 @@
 # 3.8.0
-- Add optional default-on Max Bid ladder: start at or above the effective Buy Now ceiling, advance native price ticks, then run an uncapped bid query every sixth search. Preserve configured bid fields, fixed Min Bid, purchase limits and per-target counters.
+- Add optional default-on Max Bid ladder: start at or above the effective Buy Now ceiling, advance native price ticks, continue to a user-selected ceiling (default 200k, maximum 15m), then run one uncapped bid query and restart. Preserve configured bid fields, fixed Min Bid, purchase limits and per-target counters.
 - Fix browser helper exports in CommonJS-shaped contexts. Remove the frozen legacy clock path; use independent monotonic clock calculation and Web Animations/CSS activity even when the helper is missing.
 - Place native positions directly under ratings, fall back past invalid preferred-position values, and enrich pinned cards only from matching native editions.
 - Add persistent intro visibility, header filter save, native-ID/player-aware preset loading, and a floating scroll-to-top action.

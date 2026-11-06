@@ -477,7 +477,7 @@ with sync_playwright() as p:
     sh.locator('#maxBuys').fill('1');sh.locator('#maxSearches').fill('1');sh.locator('#budget').fill('10000')
 
     # Ladder sends six distinct bid constraints while preserving the purchase ceiling and native filters.
-    sh.locator('#autoBuy').uncheck();sh.locator('#maxBin').fill('1500');sh.locator('#bidLadder').select_option('max')
+    sh.locator('#autoBuy').uncheck();sh.locator('#maxBin').fill('1500');sh.locator('#bidLadderCeiling').fill('1900');sh.locator('#bidLadder').select_option('max')
     page.evaluate('window.__testItems=[];window.__sentMaxBids=[];window.__sentMinBids=[]')
     for _ in range(6):
         sh.locator('#scanMarket').click()
@@ -488,7 +488,12 @@ with sync_playwright() as p:
     sh.locator('#bidLadder').select_option('off');sh.locator('#scanMarket').click()
     page.wait_for_function("()=>!document.querySelector('#gpts-v3-host').shadowRoot.querySelector('#resultsCount').disabled")
     assert page.evaluate('__sentMaxBids.at(-1)')==0
-    print('PASS: native Max Bid ladder, periodic uncapped search, fixed Min Bid, unchanged Buy Now ceiling and reversible fixed-bid mode')
+    sh.locator('#bidLadderCeiling').fill('200000');sh.locator('#bidLadder').select_option('max');page.evaluate('window.__sentMaxBids=[]')
+    for _ in range(7):
+        sh.locator('#scanMarket').click();page.wait_for_function("()=>!document.querySelector('#gpts-v3-host').shadowRoot.querySelector('#resultsCount').disabled")
+    assert page.evaluate('__sentMaxBids')==[1500,1600,1700,1800,1900,2000,2100]
+    sh.locator('#bidLadder').select_option('off')
+    print('PASS: short and 200k native Max Bid ladders, no premature wrap, fixed Min Bid and Buy Now ceiling, reversible fixed-bid mode')
 
     # A layout wrapper may change while the actual native results controller stays the same.
     page.evaluate("resetTrade('same-inner-controller');window.__testDelay=350")
