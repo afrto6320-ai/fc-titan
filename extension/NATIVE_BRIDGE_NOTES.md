@@ -1,3 +1,19 @@
+# v3.5.0 native purchase and catalogue contracts
+
+The uploaded 3.4.2 log confirmed a response of nine listings followed by a failed DOM identity bridge. The purchase stage must use original native objects rather than recover them from CSS rows.
+
+Source evidence in compiled_3.js: UTItemDetailsViewController.eBidConfirmed calls itemActionController.bid(currentItem, requestedBid), observes the response, and checks currentItem.getAuctionData().isWon(). compiled_2.js defines UTItemActionController.bid as the wrapper for services.Item.bid; UTTransfersDAO.bid updates the original item from EA's auction response before notifying observers. The extension uses that controller wrapper and preserves the object reference.
+
+The native catalogue contract is services.Item.searchConceptItems(UTSearchCriteriaDTO), observed as an EA observable. Search-view-model setPlayerData uses defId=[player.id] for concept searches. Only returned editions matching the selected native databaseId are used. No raw auth extraction, network interception, or copied Deep Snipe engine is added.
+
+Purchase sessions bind price caps, spend caps, purchase count and criteria. Result batches bind searchId, controller identity and original items. A dispatched bid has one attempt per Trade ID; unknown outcomes stop and prohibit automatic retry. Stop cannot undo a dispatched EA request, so a confirmed late receipt is accounted separately.
+
+Estimated loss uses expected resale net of 5% tax, divided by actual purchase cost. Manual reference is preferred; a positive native per-item market average is an approximate fallback, not guaranteed live resale. No reference means unknown loss, not a claimed zero loss.
+
+Local synthetic tests exercise the original extracted UTItemActionController.bid function in addition to filter/search handlers, with mocked EA transport. This validates contracts and the browser-world boundary, not live-account trading or installed-extension behavior.
+
+---
+
 # v3.4.2 contract corrections
 
 The user report showed that native EA suggestions were present, while the selected target still held catalogue Item ID 50540979. The adapter must resolve and confirm the base Player ID without silently replacing the requested card definition.

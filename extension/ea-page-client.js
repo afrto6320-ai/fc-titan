@@ -13,7 +13,7 @@
   });
   function request(command,args={}) {
     return new Promise((resolve,reject)=>{
-      const id=prefix+'-'+(++counter), ms=command==='status'?1200:command==='search'?12000:6000;
+      const id=prefix+'-'+(++counter), ms=command==='status'?1200:command==='search'||command==='buy'?12000:command==='options'?45000:6000;
       const timer=setTimeout(()=>{
         pending.delete(id);reject(Object.assign(new Error('EA page bridge did not respond. Reload the Web App after updating the extension.'),{code:'BRIDGE_TIMEOUT'}));
       },ms);

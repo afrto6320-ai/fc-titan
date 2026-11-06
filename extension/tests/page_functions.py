@@ -16,13 +16,13 @@ source=(SOURCE/'compiled_3.js').read_text()
 methods=['eSearchSelected','eFilterChanged','ePlayerNameChanged','eMinBidPriceChanged',
          'eMaxBidPriceChanged','eMinBuyPriceChanged','eMaxBuyPriceChanged']
 
-def extract_method(name):
-    prefix='UTMarketSearchFiltersViewController.prototype.'+name+'=function'
-    start=source.index(prefix)
-    body=source.index('{',start)
+def extract_method(name,text=source,owner='UTMarketSearchFiltersViewController'):
+    prefix=owner+'.prototype.'+name+'=function'
+    start=text.index(prefix)
+    body=text.index('{',start)
     depth=0;quote=None;escaped=False
-    for i in range(body,len(source)):
-        char=source[i]
+    for i in range(body,len(text)):
+        char=text[i]
         if quote:
             if escaped: escaped=False
             elif char=='\\': escaped=True
@@ -31,10 +31,11 @@ def extract_method(name):
         elif char=='{': depth+=1
         elif char=='}':
             depth-=1
-            if depth==0:return source[start:i+1]+';'
+            if depth==0:return text[start:i+1]+';'
     raise AssertionError('Unterminated source method '+name)
 
 contracts='\n'.join(extract_method(name) for name in methods)
+contracts+='\n'+extract_method('bid',(SOURCE/'compiled_2.js').read_text(),'UTItemActionController')
 prefix=(ROOT/'tests/fixture33.html').read_text().split('<script>')[0]
 html=prefix+'<script>'+(ROOT/'tests/ea_harness.js').read_text()+'\n'+contracts+'</script></body></html>'
 URL='https://www.ea.com/ea-sports-fc/ultimate-team/web-app/'
@@ -47,6 +48,7 @@ with sync_playwright() as p:
     page.route('**/test-portraits/**',lambda route:route.fulfill(status=200,content_type='image/svg+xml',body='<svg xmlns="http://www.w3.org/2000/svg" width="20" height="20"><rect width="20" height="20" fill="blue"/></svg>'))
     page.on('pageerror',lambda e:errors.append(str(e)))
     page.goto(URL)
+    page.add_script_tag(content=(ROOT/'trade-core.js').read_text())
     page.add_script_tag(content=(ROOT/'ea-options.js').read_text())
     page.add_script_tag(content=(ROOT/'ea-page-bridge.js').read_text())
     cdp=context.new_cdp_session(page)
@@ -56,7 +58,7 @@ with sync_playwright() as p:
     stale={'name':'Mohamed Salah','rating':88,'itemId':50540979,'playerId':None,'source':'futgg','key':'item:50540979'}
     stored={'gpts_embedded_v3':{'selected':stale,'selectedTargets':[stale],'settings':{'player':'Mohamed Salah','itemId':'50540979'}}}
     shim='window.chrome={runtime:{getURL:()=>'+json.dumps(css)+',sendMessage:async()=>{throw Error("Unexpected external catalogue request")}},storage:{local:{get:async()=>('+json.dumps(stored)+'),set:async()=>{}}}};'
-    scripts=['snipe-core.js','ea-options.js','ea-page-client.js','native-market.js','embedded.js']
+    scripts=['snipe-core.js','trade-core.js','ea-options.js','ea-page-client.js','native-market.js','embedded.js']
     loaded=cdp.send('Runtime.evaluate',{'contextId':world,'expression':shim+'\n'+'\n'.join((ROOT/name).read_text() for name in scripts)})
     assert 'exceptionDetails' not in loaded,loaded
     def request(command,args=None):
@@ -111,7 +113,15 @@ with sync_playwright() as p:
     assert page.evaluate('__nav.currentController.viewmodel.searchCriteria.maskedDefId')==209331
     assert sh.locator('#selectedTargets .target-chip').count()==1
     assert sh.locator('#itemId').input_value()==''
+    scoped=request('options',{'kind':'event'})['result']
+    assert scoped['meta']['scope']=='selected-player'
+    assert [x['id'] for x in scoped['options']]==[-1,1,12]
+    page.evaluate('window.__conceptFn=services.Item.searchConceptItems;services.Item.searchConceptItems=undefined')
+    assert request('options',{'kind':'event','refresh':True})['code']=='EDITIONS_UNAVAILABLE'
+    page.evaluate('()=>{services.Item.searchConceptItems=window.__conceptFn;}')
     sh.locator('[data-native-picker="event"]').click()
+    sh.locator('.native-option').filter(has_text='Icon').wait_for()
+    assert sh.locator('.native-option').filter(has_text='Unrelated event').count()==0
     sh.locator('.native-option').filter(has_text='Icon').click()
     page.wait_for_function('__nav.currentController.viewmodel.searchCriteria.rarities[0]===12')
     print('PASS: native local player lookup, exact base-player ID, separate rarity selection')
@@ -120,6 +130,9 @@ with sync_playwright() as p:
     sh.locator('#sync').click()
     page.wait_for_function('window.__nativeMaxBin===1000')
     sh.locator('#start').click()
+    page.wait_for_function("document.querySelector('#gpts-v3-host').shadowRoot.querySelector('#searchCount').textContent==='1'")
+    offset=sh.locator('#cycleRing').evaluate('(e)=>e.style.strokeDashoffset')
+    page.wait_for_function('(old)=>document.querySelector("#gpts-v3-host").shadowRoot.querySelector("#cycleRing").style.strokeDashoffset!==old',arg=offset)
     page.wait_for_function('window.__testSearches===2',timeout=12000)
     page.wait_for_function("document.querySelector('#gpts-v3-host').shadowRoot.querySelector('#runBadge').textContent.includes('STANDBY')")
     assert page.evaluate('window.__testCacheClears')==2
@@ -146,15 +159,77 @@ with sync_playwright() as p:
     print('PASS: Stop detaches native pending result and prevents another search')
 
     # A real result event is serialized, checked and produces an alert without a purchase.
-    page.evaluate('''window.__testDelay=50;window.__testSearches=0;
-      window.__testItems=[{id:123456,definitionId:50540979,databaseId:209331,rating:91,rareflag:12,
-        getStaticData:()=>({commonName:'Mohamed Salah'}),getAuctionData:()=>({buyNowPrice:900,tradeId:'trade-1'})}];''')
+    page.evaluate("window.__testDelay=50;window.__testSearches=0;resetTrade('alert-trade')")
     sh.locator('#start').click()
     page.wait_for_function("document.querySelector('#gpts-v3-host').shadowRoot.querySelector('#matchCount').textContent==='1'")
     assert sh.locator('#buyCount').inner_text()=='0'
     assert '50540979' in sh.locator('#nativeOffers').inner_text()
     assert page.evaluate('__testSearches')==1
     print('PASS: authoritative native result ID/rarity/price, matching alert, zero purchases')
+
+    # Native buy uses the original object/action contract, without a DOM row or general popup.
+    dialogs=[];approve=[False]
+    def dialog_handler(dialog):
+        dialogs.append(dialog.message)
+        dialog.accept() if approve[0] else dialog.dismiss()
+    page.on('dialog',dialog_handler)
+    page.evaluate("resetTrade('native-buy-1');window.__bidScenario='won'")
+    sh.locator('#autoBuy').check();sh.locator('#maxBuys').fill('1')
+    sh.locator('#start').click()
+    page.wait_for_function("document.querySelector('#gpts-v3-host').shadowRoot.querySelector('#buyCount').textContent==='1'")
+    assert page.evaluate('__bidCalls')==1 and page.evaluate('__lastBidItem===__testItems[0]')
+    assert sh.locator('#spent').inner_text()=='900' and not dialogs
+    assert 'already pending' not in sh.locator('#playerResults').inner_text()
+    sh.locator('#shell').evaluate('(e)=>e.scrollTop=0')
+    page.screenshot(path='/tmp/CODEX_SNIPE_v3.5.0_gauge.png')
+    print('PASS: native action-controller bid with exact EA object, confirmed isWon receipt, no general warning')
+
+    page.evaluate("resetTrade('loss-declined')")
+    sh.locator('#referencePrice').fill('700');sh.locator('#start').click()
+    page.wait_for_function("document.querySelector('#gpts-v3-host').shadowRoot.querySelector('#sessionStatus').textContent.includes('الخسارة')")
+    assert len(dialogs)==1 and page.evaluate('__bidCalls')==1
+    assert sh.locator('#buyCount').inner_text()=='0'
+    approve[0]=True;page.evaluate("resetTrade('loss-approved')")
+    sh.locator('#start').click()
+    page.wait_for_function("document.querySelector('#gpts-v3-host').shadowRoot.querySelector('#buyCount').textContent==='1'")
+    assert len(dialogs)==2 and page.evaluate('__bidCalls')==2
+    print('PASS: >10% after-tax loss confirmation only, declined purchase sends no bid, accepted risk matches the same trade')
+
+    # An already-dispatched purchase completes after Stop and must still be accounted once.
+    sh.locator('#referencePrice').fill('');page.evaluate("resetTrade('stopped-purchase');window.__bidDelay=1300")
+    sh.locator('#start').click();page.wait_for_function('__bidCalls===3')
+    sh.locator('#stop').click()
+    page.wait_for_function("document.querySelector('#gpts-v3-host').shadowRoot.querySelector('#buyCount').textContent==='1'")
+    frozen=sh.locator('#time').inner_text();page.wait_for_timeout(700)
+    assert sh.locator('#time').inner_text()==frozen and sh.locator('#spent').inner_text()=='900'
+    assert page.evaluate('__bidCalls')==3
+    print('PASS: Stop freezes runtime, prevents new buys and records the in-flight confirmed receipt once')
+    sh.locator('#autoBuy').uncheck();page.evaluate('window.__bidDelay=30')
+
+    # Server-side identity/price/cap checks must reject before a native bid.
+    snap=request('connect')['result']['snapshot']
+    assert request('beginSession',{'criteriaKey':snap['criteriaKey'],'maxPrice':1000,'maxSpend':500,'maxBuys':1})['code']=='BAD_ARGUMENT'
+    page.evaluate("resetTrade('limit-check')")
+    limited=request('beginSession',{'criteriaKey':snap['criteriaKey'],'maxPrice':850,'maxSpend':1000,'maxBuys':1,'autoBuy':True})['result']['sessionId']
+    result=request('search',{'maxBin':1000,'criteriaKey':snap['criteriaKey']})['result']
+    args={'sessionId':limited,'searchId':result['searchId'],'tradeId':'limit-check','instanceId':'123456','expectedPrice':900}
+    assert request('buy',args)['code']=='LIMIT'
+    assert request('buy',{**args,'expectedPrice':901})['code']=='PRICE_MISMATCH'
+    assert request('buy',{**args,'tradeId':'foreign-trade'})['code']=='LISTING_MISMATCH'
+    assert request('buy',{**args,'instanceId':'wrong-instance'})['code']=='PRICE_MISMATCH'
+    assert page.evaluate('__bidCalls')==3
+    print('PASS: native budget, price and listing guards reject without dispatching a bid')
+
+    page.evaluate("resetTrade('lost-race');window.__bidScenario='expired'")
+    sh.locator('#autoBuy').check();sh.locator('#maxSearches').fill('1');sh.locator('#start').click()
+    try:
+        page.wait_for_function("document.querySelector('#gpts-v3-host').shadowRoot.querySelector('#misses').textContent==='1'",timeout=8000)
+    except Exception:
+        print('Lost-auction diagnostics:',sh.locator('#logs').inner_text(),page.evaluate('({calls:__bidCalls,scenario:__bidScenario})'),flush=True)
+        raise
+    assert sh.locator('#buyCount').inner_text()=='0' and sh.locator('#spent').inner_text()=='0'
+    sh.locator('#autoBuy').uncheck();page.evaluate("window.__bidScenario='won'")
+    print('PASS: lost auction counts as a miss and never as a purchase')
 
     assert request('connect')['ok']
     assert not request('constructor')['ok']
@@ -213,6 +288,15 @@ with sync_playwright() as p:
     assert 'fail' not in (result_check.get_attribute('class') or '')
     assert sh.locator('h1').inner_text()=='CODEX SNIPE'
     print('PASS: duplicate IDs removed, distinct clubs retained, missing names disclosed, native badge fallback, correct ID selected, branding')
+
+    # A successful transport with no isWon state is uncertain, not a completed purchase.
+    page.evaluate("resetTrade('uncertain-buy');window.__bidScenario='pending'")
+    sh.locator('#autoBuy').check();sh.locator('#start').click()
+    page.wait_for_function("document.querySelector('#gpts-v3-host').shadowRoot.querySelector('#logs').textContent.includes('not confirmed won')")
+    assert sh.locator('#buyCount').inner_text()=='0' and sh.locator('#spent').inner_text()=='0'
+    snap=request('connect')['result']['snapshot']
+    assert request('beginSession',{'criteriaKey':snap['criteriaKey'],'maxPrice':1000,'maxSpend':1000,'maxBuys':1})['code']=='PURCHASE_UNCERTAIN'
+    print('PASS: unconfirmed native purchase never increments counters and blocks automatic retries')
 
     page.evaluate('window.__testMarketAllowed=false')
     sh.locator('#connectEA').click()

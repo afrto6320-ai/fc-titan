@@ -11,7 +11,8 @@
   const fail = (code, message) => { throw Object.assign(new Error(message), {code}); };
   const sleep = ms => new Promise(resolve => setTimeout(resolve, ms));
   let picker = null, activeSearch = null, sequence = 0;
-  const playerPools=new Map();
+  const playerPools=new Map(),editionCache=new Map(),attemptedTrades=new Set();
+  let batch=null,session=null,activePurchase=null;
   function context() {
     const app = typeof getAppMain === 'function' ? getAppMain() : null;
     const root = app?.getRootViewController?.();
@@ -33,10 +34,11 @@
       ? window.services.TransferMarket.isFeatureEnabledForUser() === true : false;
     return {mode:'page-functions', appReady:c.game, marketAllowed,
       controller:text(c.controller?.constructor?.name), hasForm:isFilter(c.controller),
-      hasResults:Boolean(resultController(c.controller)), busy:Boolean(activeSearch),
+      hasResults:Boolean(resultController(c.controller)), busy:Boolean(activeSearch||activePurchase),
       capabilities:{navigation:typeof c.root?.setGameViewTab === 'function',
         filters:typeof window.UTMarketSearchFiltersViewController === 'function',
-        search:typeof window.UTMarketSearchFiltersViewController?.prototype?.eSearchSelected === 'function'}};
+        search:typeof window.UTMarketSearchFiltersViewController?.prototype?.eSearchSelected === 'function',
+        purchase:typeof window.UTItemActionController?.prototype?.bid==='function'}};
   }
   function gate() {
     const s = status();
@@ -106,9 +108,16 @@
       player:player?{id:number(player.id),name:name(player),rating:number(player.rating)}:null,
       maskedDefId:number(q.maskedDefId),rarities:Array.isArray(q.rarities)?q.rarities.filter(Number.isFinite):[],selections};
   }
-  function options(kind) {
+  async function options(kind,refresh=false) {
     const ctrl = control(kind), entries = ctrl.getOptions();
     if (!Array.isArray(entries) || entries.length>10000) fail('UNSUPPORTED', 'Invalid native option collection.');
+    const playerId=readFilters().player?.id||null;
+    let editions=null;
+    if(kind==='event'&&playerId){
+      editions=await playerEditions(playerId,refresh);
+      if(readFilters().player?.id!==playerId)fail('STALE_PLAYER','Player changed while editions were loading.');
+      if(!editions.complete)fail('EDITIONS_INCOMPLETE','EA did not return the complete player-edition list; refresh it before choosing an event.');
+    }
     const token = String(++sequence);
     const model=window.CodexEAOptions;
     if(!model)fail('UNSUPPORTED','Reload the Web App to load the option adapter.');
@@ -131,12 +140,17 @@
       },
       getAlternateName:entry=>{try{return kind==='club'?window.UTLocalizationUtil?.teamIdToAbbr3?.(entry.id,window.services.Localization)||'':'';}catch{return '';}}
     });
-    picker = {ctrl,entries,kind,token,owner:filters(),signatures:entries.map(model.identity),indices:new Set(presented.options.map(x=>x.index)),labels:new Map(presented.options.map(x=>[x.index,x.label]))};
+    if(editions){
+      const ids=new Set(editions.items.map(x=>x.rarityId));
+      presented.options=presented.options.filter(x=>x.id===-1||ids.has(x.id));
+      presented.meta={...presented.meta,uniqueCount:presented.options.length,playerId,scope:'selected-player',editionCount:editions.items.length,verifiedAt:editions.at};
+    }
+    picker = {ctrl,entries,kind,token,playerId,owner:filters(),signatures:entries.map(model.identity),indices:new Set(presented.options.map(x=>x.index)),labels:new Map(presented.options.map(x=>[x.index,x.label]))};
     return {ok:true,mode:'page-functions',token,...presented};
   }
   function choose(args) {
     const p=picker;
-    if (!p || args.token!==p.token || p.owner!==filters() || control(p.kind)!==p.ctrl)
+    if (!p || args.token!==p.token || p.owner!==filters() || control(p.kind)!==p.ctrl || readFilters().player?.id!==p.playerId && !(readFilters().player==null&&p.playerId==null))
       fail('STALE_OPTIONS','Reopen the native filter list.');
     if (!Number.isInteger(args.index) || !p.indices.has(args.index)) fail('BAD_ARGUMENT','Invalid option index.');
     const current=p.ctrl.getOptions(), chosen=p.entries[args.index];
@@ -180,8 +194,14 @@
       }
     }
     if (matches.length!==1) fail('PLAYER_MISMATCH','EA did not return one matching player ID.');
-    const c=filters(), ctrl=c.getView().getPlayerNameSearch();
+    const c=filters(), previous=readFilters().player?.id,ctrl=c.getView().getPlayerNameSearch();
     ctrl.selectPlayerEntry(matches[0],name(matches[0]));
+    if(previous!==id){
+      for(const kind of ['quality','event']){
+        const field=control(kind),any=field.getOptions().findIndex(x=>Number(x.id)===-1);
+        if(any>=0)field.setIndex(any);
+      }
+    }
     const snap=readFilters();
     if (Number(snap.player?.id)!==id || Number(snap.maskedDefId)!==id) fail('PLAYER_MISMATCH','EA did not confirm the player criteria.');
     return {ok:true,resolvedPlayerId:id,resolution,snapshot:snap};
@@ -213,7 +233,7 @@
   function itemSummary(item) {
     const s=item.getStaticData?.(), auction=item.getAuctionData?.();
     return {name:name(s),rating:number(item.rating),instanceId:text(String(item.id||'')),itemId:number(item.definitionId),playerId:number(item.databaseId),
-      rarityId:number(item.rareflag),price:number(auction?.buyNowPrice),tradeId:text(String(auction?.tradeId||''))};
+      rarityId:number(item.rareflag),price:number(auction?.buyNowPrice),marketAverage:number(item.getMarketAverage?.()),tradeId:text(String(auction?.tradeId||''))};
   }
   async function search(args) {
     const c=filters(), ctx=gate(), snapshot=readFilters();
@@ -234,7 +254,7 @@
         if(done)return;done=true;clearTimeout(timer);clearInterval(poll);
         results.onDataChange.unobserve(observer);activeSearch=null;
         if(error) reject(error);else {
-          try {resolve({ok:true,searchId:generation,items:items.map(itemSummary),count:items.length});}
+          try {const summaries=items.map(itemSummary);batch={id:generation,top,at:Date.now(),criteriaKey:snapshot.criteriaKey,items:new Map(items.map(item=>[String(item.getAuctionData().tradeId),item]))};resolve({ok:true,searchId:generation,items:summaries,count:items.length});}
           catch(e){reject(Object.assign(new Error('EA result item format changed.'),{code:'UNSUPPORTED'}));}
         }
       };
@@ -254,8 +274,82 @@
       },200);
     });
   }
-  const handlers={status,connect,readFilters,options:a=>options(a.kind),choose,players:a=>players(a.query),selectPlayer,clearPlayer,
-    applyPrices,search,cancel:()=>{activeSearch?.cancel();picker=null;return {ok:true};}};
+  function observeNative(observable,timeout=10000){
+    if(typeof observable?.observe!=='function'||typeof observable?.unobserve!=='function')fail('UNSUPPORTED','EA observable interface changed.');
+    return new Promise((resolve,reject)=>{
+      const owner={};let done=false;
+      const finish=(error,data)=>{if(done)return;done=true;clearTimeout(timer);observable.unobserve(owner);error?reject(error):resolve(data);};
+      const timer=setTimeout(()=>finish(Object.assign(new Error('EA operation did not confirm its result.'),{code:'NATIVE_TIMEOUT'})),timeout);
+      try{observable.observe(owner,(_event,data)=>finish(null,data));}catch(e){finish(e);}
+    });
+  }
+  async function playerEditions(id,refresh){
+    const cached=editionCache.get(id);
+    if(!refresh&&cached&&Date.now()-cached.at<120000)return cached;
+    if(typeof window.services?.Item?.searchConceptItems!=='function'||typeof window.UTSearchCriteriaDTO!=='function')fail('EDITIONS_UNAVAILABLE','EA concept catalogue is unavailable; the general event list is not a verified player edition list.');
+    const all=new Map();let complete=false,offset=0;const deadline=Date.now()+30000;
+    for(let page=0;page<5&&Date.now()<deadline;page++){
+      gate();const q=new window.UTSearchCriteriaDTO();q.type=window.SearchType.PLAYER;q.defId=[id];q.count=20;q.offset=offset;
+      const reply=await observeNative(window.services.Item.searchConceptItems(q),Math.min(8000,deadline-Date.now()));
+      if(!reply?.success||!Array.isArray(reply.response?.items))fail('EDITIONS_UNAVAILABLE','EA could not confirm the player catalogue.');
+      for(const item of reply.response.items){const dto=itemSummary(item);if(dto.playerId===id&&Number.isInteger(dto.rarityId)&&dto.rarityId>=0)all.set(dto.itemId,dto);}
+      offset+=reply.response.items.length;
+      if(reply.response.endOfList===true||reply.response.endOfList!==false&&reply.response.items.length<20){complete=true;break;}
+    }
+    const result={items:[...all.values()],complete,at:Date.now()};if(complete)editionCache.set(id,result);return result;
+  }
+  function beginSession(args){
+    const snap=readFilters();
+    if(session?.uncertain)fail('PURCHASE_UNCERTAIN','Review the previous purchase in EA and reload the Web App before starting again.');
+    if(args.criteriaKey!==snap.criteriaKey)fail('FILTER_MISMATCH','EA filters changed before session start.');
+    for(const [key,upper] of [['maxPrice',15000000],['maxSpend',30000000],['maxBuys',30]])if(!Number.isSafeInteger(args[key])||args[key]<=0||args[key]>upper)fail('BAD_ARGUMENT','Invalid native session limit.');
+    if(args.maxSpend<args.maxPrice)fail('BAD_ARGUMENT','Session budget is below maximum price.');
+    if(args.itemId&&(!Number.isSafeInteger(Number(args.itemId))||Number(args.itemId)<0||Number(args.itemId)>0xffffffff))fail('BAD_ARGUMENT','Invalid card definition ID.');
+    session={id:'session-'+(++sequence),criteriaKey:snap.criteriaKey,playerId:snap.player?.id||null,
+      definitionId:args.itemId?Number(args.itemId):null,rarities:[...snap.rarities],minRating:Number(args.minRating)||0,maxRating:Number(args.maxRating)||0,
+      maxPrice:args.maxPrice,maxSpend:args.maxSpend,maxBuys:args.maxBuys,autoBuy:args.autoBuy===true,
+      referencePrice:Number(args.referencePrice)>0?Number(args.referencePrice):null,threshold:10,spent:0,buys:0,cancelled:false,uncertain:false};
+    return {ok:true,sessionId:session.id};
+  }
+  async function buy(args){
+    const ctx=gate(),current=session;
+    if(!current||current.id!==args.sessionId||current.cancelled||current.uncertain||!current.autoBuy)fail('SESSION_INVALID','Native Auto Buy session is not active.');
+    if(!batch||batch.id!==args.searchId||batch.top!==ctx.controller||batch.criteriaKey!==current.criteriaKey||Date.now()-batch.at>30000)fail('STALE_LISTING','Refresh the market; this native result batch is no longer current.');
+    const item=batch.items.get(String(args.tradeId));if(!item)fail('LISTING_MISMATCH','Trade ID is not in the native response.');
+    const card=itemSummary(item),auction=item.getAuctionData();
+    if(card.instanceId!==String(args.instanceId)||card.price!==args.expectedPrice)fail('PRICE_MISMATCH','EA listing identity or price changed.');
+    if(current.playerId&&card.playerId!==current.playerId||current.definitionId&&card.itemId!==current.definitionId||current.rarities.length&&!current.rarities.includes(card.rarityId))fail('LISTING_MISMATCH','The native listing does not match the session target.');
+    if((current.minRating||current.maxRating)&&!Number.isInteger(card.rating)||current.minRating&&card.rating<current.minRating||current.maxRating&&card.rating>current.maxRating)fail('LISTING_MISMATCH','Listing rating differs from session constraints.');
+    if(!Number.isSafeInteger(card.price)||card.price<=0||card.price>current.maxPrice||current.spent+card.price>current.maxSpend||current.buys>=current.maxBuys)fail('LIMIT','Native purchase limit reached.');
+    const user=window.services.User.getUser(),coins=user?.getCurrency?.(window.GameCurrency?.COINS)?.amount;
+    if(!Number.isFinite(coins)||typeof auction.canBuy!=='function'||typeof auction.getSecondsRemaining!=='function')fail('UNSUPPORTED','Native wallet or auction purchase checks are unavailable.');
+    if(!auction.canBuy(coins)||auction.getSecondsRemaining()<=0)return {ok:true,status:'missed',reason:'EA reports this auction cannot be bought.'};
+    const pile=window.ItemPile?.PURCHASED;
+    if(pile!==undefined&&Number.isFinite(window.MAX_NEW_ITEMS)&&typeof window.repositories?.Item?.numItemsInCache==='function'&&window.repositories.Item.numItemsInCache(pile)>=window.MAX_NEW_ITEMS)fail('UNASSIGNED_FULL','EA unassigned item capacity is full.');
+    const reference=current.referencePrice||(card.marketAverage>0?card.marketAverage:null),risk=window.CodexTradeCore.lossRisk(card.price,reference,10);
+    const riskSource=current.referencePrice?'manual-resale-price':reference?'ea-market-average':'unknown';
+    const riskKey=JSON.stringify([current.id,card.tradeId,card.price,reference,10]);
+    if(risk.requiresApproval&&args.approvedRiskKey!==riskKey)return {ok:true,status:'approval-required',riskKey,risk,riskSource};
+    if(attemptedTrades.has(card.tradeId))fail('DUPLICATE_ATTEMPT','A purchase was already attempted for this trade.');
+    if(typeof window.UTItemActionController?.prototype?.bid!=='function')fail('UNSUPPORTED','Native EA bid action is unavailable.');
+    attemptedTrades.add(card.tradeId);activePurchase={sessionId:current.id};
+    try{
+      const action=new window.UTItemActionController(),reply=await observeNative(action.bid(item,card.price),10000);
+      if(typeof reply?.success!=='boolean')fail('PURCHASE_UNCERTAIN','EA returned an unrecognized purchase response. Review the Web App before retrying.');
+      if(reply?.success!==true){
+        const code=reply?.error?.code;
+        if([window.UtasErrorCode?.NO_TRADE_EXISTS,window.UtasErrorCode?.STATE_INVALID].filter(x=>x!==undefined).includes(code))return {ok:true,status:'missed',reason:'Auction expired or was bought by another buyer.'};
+        if(window.CodexTradeCore.uncertainFailure(reply))fail('PURCHASE_UNCERTAIN','EA transport did not confirm whether the purchase completed. Review the Web App before retrying.');
+        fail('PURCHASE_REJECTED','EA rejected the purchase (status '+String(reply?.status??'unknown')+', code '+String(code??'unknown')+').');
+      }
+      if(item.getAuctionData().isWon?.()!==true){current.uncertain=true;fail('PURCHASE_UNCERTAIN','EA replied, but the listing is not confirmed won. Review it in the Web App.');}
+      current.spent+=card.price;current.buys++;
+      return {ok:true,status:'bought',sessionId:current.id,receiptId:current.id+':'+card.tradeId,tradeId:card.tradeId,price:card.price,spent:current.spent,buys:current.buys,risk,riskSource};
+    }catch(e){if(e.code!=='PURCHASE_REJECTED')current.uncertain=true;throw e;}
+    finally{activePurchase=null;}
+  }
+  const handlers={status,connect,readFilters,options:a=>options(a.kind,a.refresh===true),choose,players:a=>players(a.query),selectPlayer,clearPlayer,
+    applyPrices,search,beginSession,buy,cancel:()=>{if(session)session.cancelled=true;activeSearch?.cancel();picker=null;return {ok:true};}};
   window.addEventListener('message',async event=>{
     const m=event.data;
     if(event.source!==window || event.origin!==location.origin || !m || m.channel!==CHANNEL || m.direction!=='request')return;
@@ -263,7 +357,7 @@
     let reply;
     try {
       if(!Object.hasOwn(handlers,m.command))fail('UNKNOWN_COMMAND','Unsupported bridge operation.');
-      if(activeSearch&&!['status','cancel'].includes(m.command))fail('BUSY','A native search is already pending.');
+      if((activeSearch||activePurchase)&&!['status','cancel'].includes(m.command))fail('BUSY','A native search is already pending.');
       reply={ok:true,result:await handlers[m.command](m.args||{})};
     }catch(e){reply={ok:false,error:{code:text(e.code)||'EA_ERROR',message:text(e.message)||'Native operation failed.'}};}
     window.postMessage({channel:CHANNEL,direction:'response',id:m.id,...reply},location.origin);

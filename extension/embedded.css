@@ -165,3 +165,10 @@ hr{height:1px;border:0;background:#273742;margin:14px 0}
 
 .native-option-group summary{display:flex;gap:8px;align-items:center}.native-group-label{flex:1;min-width:0}
 .native-option-group summary img{width:28px;height:28px;object-fit:contain}
+
+.native-clock{position:relative;margin:12px auto;max-width:310px;aspect-ratio:1;background:radial-gradient(ellipse,#20333a,transparent 70%)}
+.cycle-gauge{width:100%;height:100%;overflow:visible}.clock-track,.cycle-track,.cycle-progress{fill:none;stroke-width:4}
+.clock-track{stroke:#38515b}.cycle-track{stroke:#21353e}.cycle-progress{stroke:#b8ef78;stroke-linecap:round;transform:rotate(-90deg);transform-origin:100px 100px;transition:stroke-dashoffset .18s linear}
+.cycle-dot{fill:#b8ef78}.clock-center{position:absolute;inset:30% 12%;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:7px;text-align:center}
+.clock-center .timer-value{font-variant-numeric:tabular-nums;font-size:clamp(24px,3vw,36px);direction:ltr}.clock-center #speedValue{font-size:16px;color:#b8ef78;font-variant-numeric:tabular-nums}
+.clock-range{text-align:center;color:#a7bbc4;font-size:11px;direction:ltr}

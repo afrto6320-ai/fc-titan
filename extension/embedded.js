@@ -1,4 +1,4 @@
-/* CODEX SNIPE v3.4.2 embedded interface; never accesses EA authentication tokens or private APIs. */
+/* CODEX SNIPE v3.5.0 embedded interface; never accesses EA authentication tokens or private APIs. */
 (() => {
   'use strict';
   if (window.__GPT_SNIPE_V3__) return;
@@ -14,7 +14,7 @@
     presets:{}, lastProvider:'لم يتم البحث', lastNative:'لم يتم فحص صفحة السوق', pendingQuery:0, speedValue:0, speedTarget:0, speedMinMs:2000, speedMaxMs:5000, nextIntervalMs:0, lastCycleMs:0, selectedTargets:[], language:'ar', lastAudit:null, auditLog:[], lowestObserved:null, eventTargets:[], nativeChoices:{}, nativeConnectInProgress:false, pickerOptions:[], pickerKind:"", nativePlayerConfirmed:false, pageMode:false, pageSnapshot:null, pageConnection:null, nativeItems:[]
   };
 
-  const TRANSLATIONS = {"ar":{"back":"↩ الرجوع إلى EA","title":"مركز تحكم CODEX SNIPE","subtitle":"فلترة وبحث من داخل Web App مع مراقبة الاتصال والنتائج — بدون ادعاء وجود بيانات سوق غير متاحة.","hint":"أول بحث يتصل بواجهة EA الأصلية تلقائيًا. حالة الاتصال ومصدر البيانات ظاهران في اللوحة.","language":"اللغة / Language","players":"البحث عن اللاعبين من EA","player_search":"ابحث بالاسم أو Player ID","player_placeholder":"مثال: Salah, Messi, Mbappé","player_note":"البحث الافتراضي وصورة اللاعب الأساسية من EA. اختَر الندرة/الحدث لتحديد نوع البطاقة؛ الصورة ليست معاينة كاملة لكل إصدار.","pick":"قائمة اللاعبين المختارين","pick_note":"اختيار لاعب يحدد الاسم والـID. عند اختيار عدة لاعبين يلزم دعم الربط الأصلي لكل هدف.","clear":"مسح الاختيارات","filters":"فلاتر Transfer Market","bridge_note":"القوائم غير المكتشفة تُعرض كمفقودة، ولا نحاول تخمين أسماء خيارات EA.","item":"EA Item ID لنسخة محددة (اختياري)","quality":"الجودة / Quality","minrating":"أقل تقييم","maxrating":"أعلى تقييم","position":"المركز","nation":"البلد / الجنسية","league":"الدوري","club":"النادي","minbid":"Min Bid","maxbid":"Max Bid","minbin":"Min Buy Now","maxbin":"Max Buy Now (Coins)","event":"الندرة / الحدث — EA","catalog_hint":"اقتراحات البلد والنادي والدوري مبنية على البطاقات التي تم تحميلها فقط، وليست القائمة الكاملة من EA.","inspect":"فحص الفلاتر","sync":"تطبيق المدعوم","native":"افتح سوق EA","map":"خريطة DOM","native_pending":"افتح شاشة البحث الأصلية في EA أولًا.","engine":"إعدادات السنايب","speedpreset":"نطاق سرعة البحث","speedmin":"أقل زمن (ثانية)","speedmax":"أعلى زمن (ثانية)","speedhelp":"في كل دورة يتم اختيار زمن جديد داخل المدى. المؤشر يعرض الوقت المختار فعلاً؛ الاستجابة قد تستغرق أكثر.","maxsearches":"أقصى عدد بحث","maxbuys":"أقصى عدد مشتريات","budget":"ميزانية الجلسة","autobuy":"Auto Buy Now — متوقف افتراضيًا","autobuy_note":"عند تفعيله ستظهر موافقة صريحة، ويتوقف عند أي عدم وضوح في السعر.","start":"▶ بدء البحث","stop":"■ إيقاف","preset_save":"حفظ إعدادات","presets":"الإعدادات المحفوظة","warning":"محرك السوق لم يتم التحقق منه على حساب EA حقيقي. لا توجد محاولات لتجاوز CAPTCHA أو قيود EA.","stats":"عدادات الجلسة","runtime":"مدة تشغيل البحث","speed":"زمن البحث المختار","speeddetail":"عينة المدى للجولة القادمة — ليست Ping أو سرعة خادم EA","actual":"مدة آخر دورة فعلية","next":"الفاصل القادم","searches":"عمليات بحث","matches":"مطابقات","bought":"شراء مؤكد","misses":"فشل/انتهاء","spent":"Coins مصروفة","status":"الحالة","mode":"الوضع","lowest":"أقل سعر ظاهر في النتائج","lowestNote":"أقل Buy Now من العناصر المقروءة بالصفحة فقط، ليس أقل سعر السوق كله.","checkLowest":"فحص السعر الظاهر","logs":"سجل النشاط","csv":"تصدير CSV","copylog":"نسخ اللوج","txtlog":"تصدير TXT","lognote":"سجلات الجهاز فقط. لا تحفظ الإضافة كلمات مرور أو كوكيز.","compat":"فحص توافق EA — أخضر / أحمر","compatdesc":"الفحص يميّز بين عنصر موجود، عنصر مفقود، وشاشة غير مفتوحة. الأحمر لا يظهر إلا عند توقع عنصر ولم يُعثر عليه.","rescan":"إعادة الفحص","copydiag":"نسخ التقرير","txtdiag":"تصدير التقرير TXT","jsondiag":"تصدير JSON","diagnosticlogs":"لوج الفحص التقني","copysys":"نسخ التشخيص","txtsys":"تصدير TXT","datalink":"مصدر البيانات وحالة السوق","datahelp":"البحث الافتراضي من EA وصورها الأصلية عند توفرها. عروض السوق تظهر بعد رد بحث مؤكد؛ لا تعني قوائم الفلاتر وجود عروض حالية.","none":"غير متوفر","marketneeded":"يلزم فتح شاشة البحث الأصلية","selclear":"إزالة","all_quality":"كل الأنواع","empty":"لا توجد بيانات بعد","searchhint":"اكتب حرفين على الأقل.","notlinked":"غير مربوط","no_presets":"اختر إعدادًا محفوظًا","notobserved":"لم تُقرأ عروض","cardcount":"بطاقة","connect":"ربط سوق EA الأصلي","connect_status":"حالة الاتصال بالسوق","connect_desc":"يفتح Transfers ثم Transfer Market ثم شاشة البحث باستخدام قوائم EA الأصلية. لو فشل ستظهر المرحلة المتوقفة.","connect_start":"اتصل بسوق EA","native_picker_title":"اختيار من قوائم EA الأصلية","native_picker_desc":"الخيارات والأرقام من عناصر تحكم EA. الصور من موارد EA عند توفرها؛ بعض الأسماء أو الشعارات قد تكون غير متاحة.","native_picker_empty":"اتصل بالسوق أولًا، ثم اختر فئة من القوائم.","native_offers":"نتائج سوق EA الظاهرة","native_offers_desc":"النتائج الحقيقية التي يمكن قراءتها من واجهة السوق، وليست كتالوج FUT.GG.","refresh_offers":"قراءة نتائج EA"},"en":{"back":"↩ Back to EA","title":"CODEX SNIPE Control Center","subtitle":"Embedded player lookup, market filters, and verified connection diagnostics.","hint":"The first search connects to the native EA interface. The panel shows connection and source status.","language":"Language / اللغة","players":"EA Player Search","player_search":"Search by name or Player ID","player_placeholder":"e.g. Salah, Messi, Mbappé","player_note":"Default search and base-player portraits use EA. Choose rarity/event separately; portraits are not full previews of every card version.","pick":"Selected Players","pick_note":"Selecting a card fills its name and ID. Multiple targets require a verified native binding.","clear":"Clear selected","filters":"Transfer Market Filters","bridge_note":"Unavailable EA controls are reported, never guessed.","item":"Specific EA card Item ID (optional)","quality":"Quality","minrating":"Min Rating","maxrating":"Max Rating","position":"Position","nation":"Nation","league":"League","club":"Club","minbid":"Min Bid","maxbid":"Max Bid","minbin":"Min Buy Now","maxbin":"Max Buy Now (Coins)","event":"EA Rarity / Event","catalog_hint":"Nation, league and club suggestions come only from loaded catalogue cards, not the full EA lists.","inspect":"Inspect Native Filters","sync":"Apply Supported","native":"Open EA Market","map":"DOM Map","native_pending":"Open the native EA search screen first.","engine":"Engine Settings","speedpreset":"Search Interval Range","speedmin":"Minimum (seconds)","speedmax":"Maximum (seconds)","speedhelp":"A new interval is sampled each cycle. The gauge shows the selected interval, not server speed.","maxsearches":"Max Searches","maxbuys":"Max Purchases","budget":"Session Budget","autobuy":"Auto Buy Now — off by default","autobuy_note":"Requires explicit confirmation and stops if the price cannot be verified.","start":"▶ START SEARCH","stop":"■ STOP","preset_save":"Save Preset","presets":"Saved Presets","warning":"Native market automation is unverified on EA. No CAPTCHA or protection bypass.","stats":"Session Overview","runtime":"ACTIVE RUNTIME","speed":"SELECTED INTERVAL","speeddetail":"Sampled next interval — not EA server latency","actual":"Last completed cycle","next":"Next target interval","searches":"SEARCHES","matches":"MATCHES","bought":"BOUGHT","misses":"MISSES","spent":"COINS SPENT","status":"STATUS","mode":"SESSION MODE","lowest":"Lowest observed listing","lowestNote":"Lowest readable Buy Now on this page only, not the entire market.","checkLowest":"Scan visible prices","logs":"Activity Logs","csv":"Export CSV","copylog":"Copy Log","txtlog":"Export TXT","lognote":"Local-only log; no passwords or cookies collected.","compat":"EA Compatibility — green / red","compatdesc":"Checks distinguish supported, missing, and not-on-screen. Red means missing only when the target view is present.","rescan":"Run Diagnostics","copydiag":"Copy Report","txtdiag":"Export Report TXT","jsondiag":"Export JSON","diagnosticlogs":"Technical Diagnostics Log","copysys":"Copy Diagnostics","txtsys":"Export TXT","datalink":"Catalogue & Market Status","datahelp":"Default player search uses EA and its available portraits. Listings require a confirmed response; filter choices do not prove current listings.","none":"Unavailable","marketneeded":"Open native market search first","selclear":"Remove","all_quality":"All types","empty":"No data yet","searchhint":"Enter at least two characters.","notlinked":"Unlinked","no_presets":"Choose a saved preset","notobserved":"No listings read","cardcount":"cards","connect":"Connect EA Market","connect_status":"Native market connection","connect_desc":"Uses the original Transfers, Transfer Market and Search navigation. Reports where connection fails.","connect_start":"Connect to EA Market","native_picker_title":"Browse original EA choices","native_picker_desc":"Choices and IDs come from EA controls. Images use EA assets when available; some names or badges may be unavailable.","native_picker_empty":"Connect to the market first, then pick a category.","native_offers":"Native EA market listings","native_offers_desc":"Observed original EA listings, not FUT.GG catalogue cards.","refresh_offers":"Read EA results"}};
+  const TRANSLATIONS = {"ar":{"back":"↩ الرجوع إلى EA","title":"مركز تحكم CODEX SNIPE","subtitle":"فلترة وبحث من داخل Web App مع مراقبة الاتصال والنتائج — بدون ادعاء وجود بيانات سوق غير متاحة.","hint":"أول بحث يتصل بواجهة EA الأصلية تلقائيًا. حالة الاتصال ومصدر البيانات ظاهران في اللوحة.","language":"اللغة / Language","players":"البحث عن اللاعبين من EA","player_search":"ابحث بالاسم أو Player ID","player_placeholder":"مثال: Salah, Messi, Mbappé","player_note":"البحث الافتراضي وصورة اللاعب الأساسية من EA. اختَر الندرة/الحدث لتحديد نوع البطاقة؛ الصورة ليست معاينة كاملة لكل إصدار.","pick":"قائمة اللاعبين المختارين","pick_note":"اختيار لاعب يحدد الاسم والـID. عند اختيار عدة لاعبين يلزم دعم الربط الأصلي لكل هدف.","clear":"مسح الاختيارات","filters":"فلاتر Transfer Market","bridge_note":"القوائم غير المكتشفة تُعرض كمفقودة، ولا نحاول تخمين أسماء خيارات EA.","item":"EA Item ID لنسخة محددة (اختياري)","quality":"الجودة / Quality","minrating":"أقل تقييم","maxrating":"أعلى تقييم","position":"المركز","nation":"البلد / الجنسية","league":"الدوري","club":"النادي","minbid":"Min Bid","maxbid":"Max Bid","minbin":"Min Buy Now","maxbin":"Max Buy Now (Coins)","event":"إصدارات اللاعب / الندرة — EA","catalog_hint":"اقتراحات البلد والنادي والدوري مبنية على البطاقات التي تم تحميلها فقط، وليست القائمة الكاملة من EA.","inspect":"فحص الفلاتر","sync":"تطبيق المدعوم","native":"افتح سوق EA","map":"خريطة DOM","native_pending":"افتح شاشة البحث الأصلية في EA أولًا.","engine":"إعدادات السنايب","speedpreset":"نطاق سرعة البحث","speedmin":"أقل زمن (ثانية)","speedmax":"أعلى زمن (ثانية)","speedhelp":"في كل دورة يتم اختيار زمن جديد داخل المدى. المؤشر يعرض الوقت المختار فعلاً؛ الاستجابة قد تستغرق أكثر.","maxsearches":"أقصى عدد بحث","maxbuys":"أقصى عدد مشتريات","budget":"ميزانية الجلسة","autobuy":"Auto Buy Now — متوقف افتراضيًا","autobuy_note":"تنفيذ عبر دالة EA الأصلية مع حدود السعر والميزانية. تأكيد إضافي فقط عند خسارة تقديرية تتجاوز 10% ووجود مرجع.","start":"▶ بدء البحث","stop":"■ إيقاف","preset_save":"حفظ إعدادات","presets":"الإعدادات المحفوظة","warning":"محرك السوق لم يتم التحقق منه على حساب EA حقيقي. لا توجد محاولات لتجاوز CAPTCHA أو قيود EA.","stats":"عدادات الجلسة","runtime":"مدة تشغيل البحث","speed":"حالة الجولة والوقت المتبقي","speeddetail":"العداد يعكس الجولة الفعلية، وليس Ping للخادم.","actual":"مدة آخر دورة فعلية","next":"الفاصل القادم","searches":"عمليات بحث","matches":"مطابقات","bought":"شراء مؤكد","misses":"فشل/انتهاء","spent":"Coins مصروفة","status":"الحالة","mode":"الوضع","lowest":"أقل سعر ظاهر في النتائج","lowestNote":"أقل Buy Now من العناصر المقروءة بالصفحة فقط، ليس أقل سعر السوق كله.","checkLowest":"فحص السعر الظاهر","logs":"سجل النشاط","csv":"تصدير CSV","copylog":"نسخ اللوج","txtlog":"تصدير TXT","lognote":"سجلات الجهاز فقط. لا تحفظ الإضافة كلمات مرور أو كوكيز.","compat":"فحص توافق EA — أخضر / أحمر","compatdesc":"الفحص يميّز بين عنصر موجود، عنصر مفقود، وشاشة غير مفتوحة. الأحمر لا يظهر إلا عند توقع عنصر ولم يُعثر عليه.","rescan":"إعادة الفحص","copydiag":"نسخ التقرير","txtdiag":"تصدير التقرير TXT","jsondiag":"تصدير JSON","diagnosticlogs":"لوج الفحص التقني","copysys":"نسخ التشخيص","txtsys":"تصدير TXT","datalink":"مصدر البيانات وحالة السوق","datahelp":"البحث الافتراضي من EA وصورها الأصلية عند توفرها. عروض السوق تظهر بعد رد بحث مؤكد؛ لا تعني قوائم الفلاتر وجود عروض حالية.","none":"غير متوفر","marketneeded":"يلزم فتح شاشة البحث الأصلية","selclear":"إزالة","all_quality":"كل الأنواع","empty":"لا توجد بيانات بعد","searchhint":"اكتب حرفين على الأقل.","notlinked":"غير مربوط","no_presets":"اختر إعدادًا محفوظًا","notobserved":"لم تُقرأ عروض","cardcount":"بطاقة","connect":"ربط سوق EA الأصلي","connect_status":"حالة الاتصال بالسوق","connect_desc":"يفتح Transfers ثم Transfer Market ثم شاشة البحث باستخدام قوائم EA الأصلية. لو فشل ستظهر المرحلة المتوقفة.","connect_start":"اتصل بسوق EA","native_picker_title":"اختيار من قوائم EA الأصلية","native_picker_desc":"الخيارات والأرقام من عناصر تحكم EA. الصور من موارد EA عند توفرها؛ بعض الأسماء أو الشعارات قد تكون غير متاحة.","native_picker_empty":"اتصل بالسوق أولًا، ثم اختر فئة من القوائم.","native_offers":"نتائج سوق EA الظاهرة","native_offers_desc":"النتائج الحقيقية التي يمكن قراءتها من واجهة السوق، وليست كتالوج FUT.GG.","refresh_offers":"قراءة نتائج EA"},"en":{"back":"↩ Back to EA","title":"CODEX SNIPE Control Center","subtitle":"Embedded player lookup, market filters, and verified connection diagnostics.","hint":"The first search connects to the native EA interface. The panel shows connection and source status.","language":"Language / اللغة","players":"EA Player Search","player_search":"Search by name or Player ID","player_placeholder":"e.g. Salah, Messi, Mbappé","player_note":"Default search and base-player portraits use EA. Choose rarity/event separately; portraits are not full previews of every card version.","pick":"Selected Players","pick_note":"Selecting a card fills its name and ID. Multiple targets require a verified native binding.","clear":"Clear selected","filters":"Transfer Market Filters","bridge_note":"Unavailable EA controls are reported, never guessed.","item":"Specific EA card Item ID (optional)","quality":"Quality","minrating":"Min Rating","maxrating":"Max Rating","position":"Position","nation":"Nation","league":"League","club":"Club","minbid":"Min Bid","maxbid":"Max Bid","minbin":"Min Buy Now","maxbin":"Max Buy Now (Coins)","event":"Player editions / EA rarity","catalog_hint":"Nation, league and club suggestions come only from loaded catalogue cards, not the full EA lists.","inspect":"Inspect Native Filters","sync":"Apply Supported","native":"Open EA Market","map":"DOM Map","native_pending":"Open the native EA search screen first.","engine":"Engine Settings","speedpreset":"Search Interval Range","speedmin":"Minimum (seconds)","speedmax":"Maximum (seconds)","speedhelp":"A new interval is sampled each cycle. The gauge shows the selected interval, not server speed.","maxsearches":"Max Searches","maxbuys":"Max Purchases","budget":"Session Budget","autobuy":"Auto Buy Now — off by default","autobuy_note":"Native EA purchase with price and budget limits. Additional confirmation only for a known estimated loss above 10%.","start":"▶ START SEARCH","stop":"■ STOP","preset_save":"Save Preset","presets":"Saved Presets","warning":"Native market automation is unverified on EA. No CAPTCHA or protection bypass.","stats":"Session Overview","runtime":"ACTIVE RUNTIME","speed":"Cycle phase and countdown","speeddetail":"Tracks the actual cycle; not server ping.","actual":"Last completed cycle","next":"Next target interval","searches":"SEARCHES","matches":"MATCHES","bought":"BOUGHT","misses":"MISSES","spent":"COINS SPENT","status":"STATUS","mode":"SESSION MODE","lowest":"Lowest observed listing","lowestNote":"Lowest readable Buy Now on this page only, not the entire market.","checkLowest":"Scan visible prices","logs":"Activity Logs","csv":"Export CSV","copylog":"Copy Log","txtlog":"Export TXT","lognote":"Local-only log; no passwords or cookies collected.","compat":"EA Compatibility — green / red","compatdesc":"Checks distinguish supported, missing, and not-on-screen. Red means missing only when the target view is present.","rescan":"Run Diagnostics","copydiag":"Copy Report","txtdiag":"Export Report TXT","jsondiag":"Export JSON","diagnosticlogs":"Technical Diagnostics Log","copysys":"Copy Diagnostics","txtsys":"Export TXT","datalink":"Catalogue & Market Status","datahelp":"Default player search uses EA and its available portraits. Listings require a confirmed response; filter choices do not prove current listings.","none":"Unavailable","marketneeded":"Open native market search first","selclear":"Remove","all_quality":"All types","empty":"No data yet","searchhint":"Enter at least two characters.","notlinked":"Unlinked","no_presets":"Choose a saved preset","notobserved":"No listings read","cardcount":"cards","connect":"Connect EA Market","connect_status":"Native market connection","connect_desc":"Uses the original Transfers, Transfer Market and Search navigation. Reports where connection fails.","connect_start":"Connect to EA Market","native_picker_title":"Browse original EA choices","native_picker_desc":"Choices and IDs come from EA controls. Images use EA assets when available; some names or badges may be unavailable.","native_picker_empty":"Connect to the market first, then pick a category.","native_offers":"Native EA market listings","native_offers_desc":"Observed original EA listings, not FUT.GG catalogue cards.","refresh_offers":"Read EA results"}};
   const tr = key => (TRANSLATIONS[state.language]||TRANSLATIONS.ar)[key]||key;
   const fmt = v => Number(v || 0).toLocaleString('en-US');
   const nap = ms => new Promise(resolve => setTimeout(resolve,ms));
@@ -35,7 +35,7 @@
   }
   function readSettingsSafe(){
     if(!shadow) return {};
-    return Object.fromEntries(['player','itemId','ratingMin','ratingMax','quality','position','club','league','nation','minBid','maxBid','minBin','maxBin','interval','maxSearches','maxBuys','budget','autoBuy','speedPreset','speedMin','speedMax','event'].map(k=>[k,$(k)?.type==='checkbox'?$(k).checked:$(k)?.value||'']));
+    return Object.fromEntries(['player','itemId','ratingMin','ratingMax','quality','position','club','league','nation','minBid','maxBid','minBin','maxBin','interval','maxSearches','maxBuys','budget','autoBuy','speedPreset','speedMin','speedMax','event','referencePrice'].map(k=>[k,$(k)?.type==='checkbox'?$(k).checked:$(k)?.value||'']));
   }
   function input(id){return $(id)?.value.trim()||'';}
   function numeric(id){return Number(input(id)||0);}
@@ -43,9 +43,9 @@
   function updateNativeLabels(){for(const id of ['quality','position','nation','league','club','event']){const el=$('nativeLabel'+id.charAt(0).toUpperCase()+id.slice(1));if(el)el.textContent=input(id)||'— EA';}}
   function uiHTML(){return `
   <main id="shell" dir="${state.language==='ar'?'rtl':'ltr'}" lang="${state.language}" aria-label="CODEX SNIPE dashboard">
-    <header class="top"><div class="brand"><div class="mark" aria-hidden="true">◎</div><div><h1>CODEX <span>SNIPE</span></h1><small>ULTIMATE TEAM · EMBEDDED CONSOLE · v3.4.2</small></div></div>
+    <header class="top"><div class="brand"><div class="mark" aria-hidden="true">◎</div><div><h1>CODEX <span>SNIPE</span></h1><small>ULTIMATE TEAM · EMBEDDED CONSOLE · v3.5.0</small></div></div>
       <div class="head-actions"><label class="lang-label">${tr('language')} <select id="language"><option value="ar" ${state.language==='ar'?'selected':''}>العربية</option><option value="en" ${state.language==='en'?'selected':''}>English</option></select></label><span id="connection" class="pill warn">● EA WEB APP</span><span id="runBadge" class="pill">● STANDBY</span><button type="button" id="close" class="ghost">${tr('back')}</button></div></header>
-    <div class="intro"><div><div class="eyebrow">ADVANCED TRANSFER WORKSPACE / V3.4.2</div><h2>${tr('title')}</h2><p>${tr('subtitle')}</p></div><div class="hint">${tr('hint')}</div></div>
+    <div class="intro"><div><div class="eyebrow">ADVANCED TRANSFER WORKSPACE / V3.5.0</div><h2>${tr('title')}</h2><p>${tr('subtitle')}</p></div><div class="hint">${tr('hint')}</div></div>
     <div class="layout">
       <div class="column control">
         <details class="panel collapsible" open><summary class="panel-head"><h3><em>⌕</em> ${tr('players')}</h3><span class="tiny-tag">PLAYER FINDER</span></summary>
@@ -83,20 +83,20 @@
              <label class="field"><span>${tr('maxsearches')}</span><input id="maxSearches" type="number" min="1" max="300" value="30"></label>
              <label class="field"><span>${tr('maxbuys')}</span><input id="maxBuys" type="number" min="1" max="30" value="1"></label>
              <label class="field full"><span>${tr('budget')} (Coins)</span><input id="budget" type="number" min="150" value="10000"></label>
+             <label class="field full"><span>${state.language==='ar'?'سعر البيع المتوقع (اختياري، لنفس النسخة)':'Expected resale price (optional, same edition)'}</span><input id="referencePrice" type="number" min="150" placeholder="—"></label>
            </div><p class="desc" style="margin-top:12px">${tr('speedhelp')}</p>
            <label class="checkbox"><input type="checkbox" id="autoBuy"><span><b>${tr('autobuy')}</b><br>${tr('autobuy_note')}</span></label>
            <div class="action-row"><button type="button" id="start" class="primary">${tr('start')}</button><button type="button" id="stop" class="danger" disabled>${tr('stop')}</button><button type="button" id="savePreset" class="secondary">${tr('preset_save')}</button></div>
            <label class="field" style="margin-top:13px"><span>${tr('presets')}</span><select id="presets"><option value="">${tr('no_presets')}</option></select></label>
-           <div class="inline-warning">${tr('warning')}</div>
+           <div id="lossRiskStatus" class="native-status"></div>
           </div></details>
       </div>
       <div class="column right">
         <details class="panel collapsible" open><summary class="panel-head"><h3><em>▦</em> ${tr('stats')}</h3><small id="sessionLabel">SESSION INACTIVE</small></summary>
-          <div class="hero-stats"><div class="timer-card"><div class="timer-label">${tr('runtime')}</div><div id="time" class="timer-value">00:00</div><div class="timer-sub">${tr('runtime')}</div></div>
-            <div class="speed-card"><div class="speed-top"><span>${tr('speed')}</span><b id="speedValue">—</b></div><div class="gauge"><div class="gauge-ring"></div><div class="gauge-arc" id="speedArc"></div><div class="gauge-needle" id="speedNeedle"></div><div class="gauge-center"></div><div class="gauge-min" id="gaugeMin">2.0</div><div class="gauge-max" id="gaugeMax">5.0</div></div><div class="speed-sub">${tr('speeddetail')}</div></div></div>
+          <div class="native-clock"><svg viewBox="0 0 200 200" class="cycle-gauge" aria-hidden="true"><circle cx="100" cy="100" r="88" class="clock-track"/><circle cx="100" cy="100" r="76" class="cycle-track"/><circle id="cycleRing" cx="100" cy="100" r="76" class="cycle-progress"/><circle id="cycleDot" cx="100" cy="24" r="5" class="cycle-dot"/></svg><div class="clock-center"><div class="timer-label">${tr('runtime')}</div><div id="time" class="timer-value">00:00:00</div><b id="cyclePhase">—</b><span id="speedValue">—</span></div><div class="clock-range"><span id="gaugeMin">2.0</span>–<span id="gaugeMax">5.0</span> sec</div></div>
           <div class="stats"><div class="metric"><span class="emoji">⌕</span><small>${tr('searches')}</small><strong id="searchCount" class="accent">0</strong></div><div class="metric"><span class="emoji">◇</span><small>${tr('matches')}</small><strong id="matchCount">0</strong></div><div class="metric"><span class="emoji">✓</span><small>${tr('bought')}</small><strong id="buyCount">0</strong></div><div class="metric"><span class="emoji">✕</span><small>${tr('misses')}</small><strong id="misses">0</strong></div></div>
           <div class="second-stats"><div class="substat"><span>${tr('spent')}</span><b id="spent">0</b></div><div class="substat"><span>${tr('status')}</span><b id="status">READY</b></div><div class="substat"><span>${tr('mode')}</span><b id="sessionMode">STANDBY</b></div></div>
-          <div class="cycle-details"><span>${tr('next')}: <b id="nextDelay">—</b></span><span>${tr('actual')}: <b id="actualCycle">—</b></span></div>
+          <div class="cycle-details"><span>${state.language==='ar'?'مدة الجولة المختارة':'Selected cycle'}: <b id="sampledInterval">—</b></span><span>${tr('next')}: <b id="nextDelay">—</b></span><span>${tr('actual')}: <b id="actualCycle">—</b></span></div>
           <div class="status-line"><strong id="sessionStatus">● STANDBY</strong><small id="syncCount">EA FILTERS: NOT LINKED</small></div></details>
         <details class="panel collapsible" open><summary class="panel-head"><h3><em>▥</em> ${tr('native_offers')}</h3><span class="tiny-tag">EA ORIGINAL</span></summary><div class="panel-body"><p class="desc">${tr('native_offers_desc')}</p><button class="secondary" id="captureOffers" type="button">${tr('refresh_offers')}</button><div id="nativeOffers" class="native-offers"><div class="muted">—</div></div></div></details>
         <details class="panel collapsible" open><summary class="panel-head"><h3><em>◉</em> ${tr('lowest')}</h3><span class="tiny-tag">VISIBLE MARKET ONLY</span></summary><div class="panel-body"><div class="market-low"><b id="lowestPriceValue">—</b><small id="lowestPriceMeta">${tr('notobserved')}</small></div><p class="desc">${tr('lowestNote')}</p><button id="checkLowest" type="button" class="secondary">${tr('checkLowest')}</button></div></details>
@@ -105,7 +105,7 @@
         <details class="panel collapsible" id="technicalPanel"><summary class="panel-head"><h3><em>▤</em> ${tr('diagnosticlogs')}</h3><span class="tiny-tag">TECHNICAL</span></summary><div class="panel-body"><div class="action-row"><button id="copyTechnical" class="secondary" type="button">${tr('copysys')}</button><button id="exportTechnical" class="ghost" type="button">${tr('txtsys')}</button></div><pre id="technicalLogs" class="technical-logs">${tr('empty')}</pre></div></details>
         <details class="panel collapsible"><summary class="panel-head"><h3><em>ⓘ</em> ${tr('datalink')}</h3><span class="tiny-tag">STATUS</span></summary><div class="panel-body"><p class="desc">${tr('datahelp')}</p><div id="dataHealth" class="native-status">${tr('empty')}</div></div></details>
       </div>
-    </div><footer class="footer"><span>CODEX SNIPE v3.4.2 · Unofficial · Independent</span><span>SEARCH • INSPECT • MONITOR</span></footer>
+    </div><footer class="footer"><span>CODEX SNIPE v3.5.0 · Unofficial · Independent</span><span>SEARCH • INSPECT • MONITOR</span></footer>
   </main>`;}
   function createPortal(){
     if(portal?.isConnected)return;
@@ -202,7 +202,7 @@
     if(!Number.isFinite(lo)||!Number.isFinite(hi)||lo<0.6||hi>60||hi<lo)throw Error('اختار مدى سرعة صحيحًا بين 0.6 و60 ثانية، وأقصى زمن لا يقل عن الأقل.');
     return {minMs:Math.round(lo*1000),maxMs:Math.round(hi*1000)};
   }
-  function paintSpeedGauge(ms){
+  function oldPaintSpeedGauge(ms){
     const seconds=ms/1000;
     const lo=Math.max(0.1,state.speedMinMs/1000),hi=Math.max(lo,state.speedMaxMs/1000);
     const ratio=ms>0 ? Math.max(0,Math.min(1,(seconds-lo)/(hi-lo||1))) : 0;
@@ -213,6 +213,27 @@
     if($('nextDelay'))$('nextDelay').textContent=ms>0?seconds.toFixed(2)+'s':'—';
     if($('actualCycle'))$('actualCycle').textContent=state.lastCycleMs>0?(state.lastCycleMs/1000).toFixed(2)+'s':'—';
   }
+  function paintSpeedGauge(ms){
+    const now=performance.now(),metrics=window.CodexTradeCore?.pace(now,{running:state.running,startedMono:state.startedMono,endedMono:state.endedMono,cycleStart:state.cycleStart,intervalMs:state.nextIntervalMs,phase:state.phase});
+    if(!metrics){oldPaintSpeedGauge(ms);return;}
+    if($('time'))$('time').textContent=metrics.clock;
+    const phase=state.running?(state.phase||'searching'):'stopped';
+    const labels=state.language==='ar'?{searching:'بحث EA',buying:'شراء EA',waiting:'انتظار الجولة',stopped:'متوقف'}:{searching:'EA search',buying:'EA purchase',waiting:'Next search',stopped:'Stopped'};
+    if($('cyclePhase'))$('cyclePhase').textContent=labels[phase]||phase;
+    if($('speedValue'))$('speedValue').textContent=state.running?(phase==='waiting'?(metrics.remaining/1000).toFixed(1)+'s':((now-(state.phaseStarted||now))/1000).toFixed(1)+'s'):'—';
+    const circumference=2*Math.PI*76;
+    if($('cycleRing')){$('cycleRing').style.strokeDasharray=String(circumference);$('cycleRing').style.strokeDashoffset=String(circumference*(1-metrics.progress));}
+    if($('cycleDot')){const angle=-Math.PI/2+metrics.progress*Math.PI*2;$('cycleDot').setAttribute('cx',String(100+76*Math.cos(angle)));$('cycleDot').setAttribute('cy',String(100+76*Math.sin(angle)));}
+    if($('nextDelay'))$('nextDelay').textContent=state.running?(metrics.remaining/1000).toFixed(2)+'s':'—';
+    if($('actualCycle'))$('actualCycle').textContent=state.lastCycleMs>0?(state.lastCycleMs/1000).toFixed(2)+'s':'—';
+    if($('sampledInterval'))$('sampledInterval').textContent=state.nextIntervalMs>0?(state.nextIntervalMs/1000).toFixed(2)+'s':'—';
+    if($('lossRiskStatus')){
+      const risk=state.lastRisk||(numeric('referencePrice')>0&&numeric('maxBin')>0?window.CodexTradeCore.lossRisk(numeric('maxBin'),numeric('referencePrice')):null);
+      $('lossRiskStatus').textContent=risk?.known?(state.language==='ar'?'تقدير بعد ضريبة 5%: ':'After 5% tax: ')+risk.lossPct.toFixed(1)+'% '+(state.language==='ar'?'خسارة من تكلفة الشراء؛ التنبيه عند أكثر من 10%.':'loss on purchase cost; confirm only above 10%.'):(state.language==='ar'?'الخسارة غير محسوبة: أدخل سعر بيع مرجعي، أو يستخدم متوسط EA للعرض إن توفر.':'Loss unknown: enter expected resale, or use the listing EA average when available.');
+    }
+  }
+  function phase(value){state.phase=value;state.phaseStarted=performance.now();refresh();}
+  async function waitCycle(token){phase('waiting');while(state.running&&state.token===token){const left=state.nextIntervalMs-(performance.now()-state.cycleStart);if(left<=0)break;await nap(Math.min(100,left));}}
   function refresh(){if(!shadow)return;
     const sec=state.started?Math.floor(((state.ended||Date.now())-state.started)/1000):0;
     const show={searchCount:fmt(state.searches),matchCount:fmt(state.matches),buyCount:fmt(state.bought),spent:fmt(state.spent),misses:fmt(state.misses),time:`${String(Math.floor(sec/60)).padStart(2,'0')}:${String(sec%60).padStart(2,'0')}`,status:state.running?'LIVE':state.status==='خطأ'?'ERROR':'READY'};
@@ -220,6 +241,8 @@
     if($('sessionMode'))$('sessionMode').textContent=state.running?($('autoBuy')?.checked?'AUTO BUY':'ALERT ONLY'):'STANDBY';
     paintSpeedGauge(state.running?state.nextIntervalMs:0);
     $('start').disabled=state.running||state.starting;$('stop').disabled=!(state.running||state.starting);
+    for(const id of ['player','itemId','referencePrice','autoBuy','budget','maxBuys','maxSearches','maxBin','minBin','minBid','maxBid','ratingMin','ratingMax'])if($(id))$(id).disabled=state.running||state.starting;
+    for(const button of shadow.querySelectorAll('[data-native-picker]'))button.disabled=state.running||state.starting;
     $('runBadge').innerHTML=state.running?'<i></i> LIVE SCANNING':'<i></i> STANDBY';$('runBadge').className='pill'+(state.running?' green':'');
     $('sessionLabel').textContent=state.running?'ACTIVE SESSION':'SESSION INACTIVE';$('sessionStatus').textContent=state.running?'● SCANNING':`● ${state.status}`;
     const connected=state.pageMode?Boolean(state.pageSnapshot&&state.pageConnection?.ok):Boolean(findNativeSearchButton());
@@ -260,7 +283,12 @@
   function updateDatalists(){ /* Original EA option picker now owns these categories. */ }
   function selectPlayer(p){
     if(state.running||state.starting){addLog('أوقف الجلسة قبل تغيير اللاعب.','warning');return;}
-    state.selected=p;state.nativePlayerConfirmed=false;
+    clearTimeout(searchTimer);state.pendingQuery++;
+    if(state.selected?.playerId!==p.playerId&&$('referencePrice'))$('referencePrice').value='';
+    state.lastRisk=null;state.selected=p;state.nativePlayerConfirmed=false;
+    state.pickerRequestSeq=(state.pickerRequestSeq||0)+1;state.pickerOptions=[];
+    if($('nativePickerResults'))$('nativePickerResults').replaceChildren();
+    if($('pickerStatus'))$('pickerStatus').textContent=state.language==='ar'?'سيتم عرض إصدارات اللاعب المؤكد عند فتح الحدث.':'Open Events to read the confirmed player editions.';
     const key=String(p.key||p.itemId||p.playerId||p.name);
     state.selectedTargets=[{...p,key}];
     $('player').value=p.name||'';
@@ -325,6 +353,7 @@
     }
   }
   async function searchPlayers(queryOverride){
+    if(state.running||state.starting)return;
     const term=typeof queryOverride==='string'?queryOverride:input('player');const token=++state.pendingQuery;
     if(term.length<2){renderPlayers([], 'اكتب حرفين أو أكثر.');return;}
     if(Page&&!state.pageMode){
@@ -392,7 +421,7 @@
         if(switchingSource){
           renderPlayers([],state.language==='ar'?'تم الاتصال ببحث EA. اكتب اسم اللاعب لقراءة اقتراحاته الأصلية.':'Connected to EA player search. Type a name to read its native suggestions.');
           state.lastProvider='EA native player engine';
-          const q=state.selected?.searchQuery||input('player');if(options.refreshPlayers!==false&&q.length>=2)void searchPlayers(q);
+          const q=state.selected?.searchQuery||input('player');if(!state.starting&&!state.running&&options.refreshPlayers!==false&&q.length>=2)void searchPlayers(q);
         }
         mergePageSnapshot(report.snapshot);for(const step of report.trace)markConnectProgress(step);
         $('dataHealth').textContent='EA PAGE FUNCTIONS · native controllers & local player engine';
@@ -406,16 +435,19 @@
   }
   function imageFromNative(src){try{const url=new URL(src,location.href);if(url.protocol==='https:')return url.href;}catch{}return '';}
   async function showNativePicker(kind){
+    const requestId=(state.pickerRequestSeq||0)+1;state.pickerRequestSeq=requestId;
     const target=$('nativePickerResults'),status=$('pickerStatus');if(!target||!status)return;
     target.replaceChildren();status.textContent='EA '+kind+' · Loading original options…';
     if(!state.pageMode&&!Native?.hasForm()){
       const connected=await connectEA();if(!connected){status.textContent='لا يمكن عرض فلاتر '+kind+' قبل الاتصال بشاشة السوق الأصلية.';return;}
     }
     const found=state.pageMode?await Page.request('options',{kind}):await Native.openPicker(kind);
+    if(state.pickerRequestSeq!==requestId)return;
     state.pickerKind=kind;state.pickerOptions=found.options||[];
     const ar=state.language==='ar',meta=found.meta||{rawCount:found.options.length,uniqueCount:found.options.length,duplicatesRemoved:0,unresolvedNames:0};
     state.lastPickerAudit={kind,...meta,images:{loaded:0,missing:0,pending:0}};
     status.textContent=found.ok?(ar?`EA ${kind}: ${meta.uniqueCount} اختيار بالـID · ${meta.duplicatesRemoved} مكرر حُذف · ${meta.unresolvedNames} اسم غير متاح`:`EA ${kind}: ${meta.uniqueCount} IDs · ${meta.duplicatesRemoved} duplicates removed · ${meta.unresolvedNames} unresolved names`):found.reason;
+    if(meta.scope==='selected-player')status.textContent+=ar?` · إصدارات اللاعب ${meta.playerId} فقط (${meta.editionCount})`:` · player ${meta.playerId} editions only (${meta.editionCount})`;
     if(found.ok&&meta.nameGroups!=null)status.textContent+=ar?` · ${meta.nameGroups} أسماء أندية مجمعة`:` · ${meta.nameGroups} club-name groups`;
     if(!found.ok){addLog('EA options unavailable: '+kind,'warning');return;}
     const source=document.createElement('p');source.className='desc native-source';source.dataset.source='ea-native';
@@ -478,6 +510,7 @@
           button.disabled=true;let result;
           try{result=state.pageMode?await Page.request('choose',{token:found.token,index:opt.index}):Native.chooseOption(opt.index);}
           catch(e){status.textContent=e.message;button.disabled=false;return;}
+          if(kind==='event'&&state.nativeChoices.event!==result.label){$('referencePrice').value='';state.lastRisk=null;}
           if(result.snapshot)mergePageSnapshot(result.snapshot);
           if(!result.ok){status.textContent='EA changed the options: reopen the picker.';button.disabled=false;return;}
           const inputEl=$(kind);if(inputEl)inputEl.value=result.label;
@@ -599,7 +632,7 @@
     checks[checks.length-1].status=dialog()?'pass':'unknown';
     add('CAPTCHA/security challenge',!blocked(),'Session must stop if protection appears',false);
     const counters={pass:checks.filter(x=>x.status==='pass').length,fail:checks.filter(x=>x.status==='fail').length,unknown:checks.filter(x=>x.status==='unknown').length};
-    const report={kind:'CODEX_SNIPE_COMPATIBILITY',version:'3.4.2',at:new Date().toISOString(),page:location.pathname,marketViewDetected:hasMarket,searchButtonDetected:hasSearch,counts:counters,checks,nativeFunctions:state.pageMode?state.pageSnapshot:null};
+    const report={kind:'CODEX_SNIPE_COMPATIBILITY',version:'3.5.0',at:new Date().toISOString(),page:location.pathname,marketViewDetected:hasMarket,searchButtonDetected:hasSearch,counts:counters,checks,nativeFunctions:state.pageMode?state.pageSnapshot:null};
     state.lastAudit=report;
     state.auditLog.unshift({at:report.at,summary:`Pass ${counters.pass}, Fail ${counters.fail}, Need view ${counters.unknown}`,marketView:hasMarket});
     state.auditLog=state.auditLog.slice(0,60);
@@ -715,7 +748,7 @@
   function dialogConfirm(el){return [...el.querySelectorAll('button')].find(e=>visible(e)&&!e.disabled&&/^(yes|ok|confirm|buy|purchase|accept|موافق|تأكيد|شراء)$/i.test(e.textContent.trim()))||null;}
   function dialogPrice(el){const p=priceFrom(el);if(p)return p;const m=(el?.textContent||'').match(/(?:for|price|مقابل|بسعر)\s*([\d٠-٩۰-۹][\d٠-٩۰-۹,.،\s]*)/i);return m?Core.coins(m[1].trim()):null;}
   function options(){return Core.validate(Core.options({target:input('player'),itemId:input('itemId'),rarity:input('quality'),minRating:input('ratingMin'),maxRating:input('ratingMax'),maxPrice:numeric('maxBin'),maxSpend:numeric('budget'),maxBuys:numeric('maxBuys'),maxSearches:numeric('maxSearches'),intervalMs:rangeConfig().minMs,autoBuy:$('autoBuy').checked}));}
-  function stop(reason='توقف'){if(!state.running&&!state.starting)return;state.starting=false;state.running=false;state.ended=Date.now();state.token++;if(state.pageMode)void Page.request('cancel').catch(()=>{});state.status=reason;addLog(reason,'warning');refresh();save();}
+  function stop(reason='توقف'){if(!state.running&&!state.starting)return;state.starting=false;state.running=false;state.ended=Date.now();state.endedMono=performance.now();state.phase='stopped';state.token++;if(state.pageMode)void Page.request('cancel').catch(()=>{});state.status=reason;addLog(reason,'warning');refresh();save();}
   async function waitForSearch(token, before=[]){
     const deadline=Date.now()+8500;
     while(state.running&&token===state.token&&Date.now()<deadline){
@@ -766,17 +799,34 @@
         state.matches++;addLog('EA confirmed matching listing: '+(item.name||item.playerId)+' · '+fmt(item.price)+' Coins','success');
         stop('EA native match found — alert mode.');return;
       }
-      const rows=resultRows().filter(row=>
-        (item.tradeId&&row.dataset.tradeId===item.tradeId)||(item.instanceId&&row.dataset.id===item.instanceId));
-      if(rows.length===1 && await checkRow(rows[0],o,token))return;
-      stop('EA returned a matching listing, but its Buy Now UI identity could not be verified. No purchase confirmed.');return;
+      state.matches++;phase('buying');
+      const args={sessionId:o.sessionId,searchId:state.nativeSearchId,tradeId:item.tradeId,instanceId:item.instanceId,expectedPrice:item.price};
+      let response=await Page.request('buy',args);
+      if(response.status==='approval-required'){
+        state.lastRisk=response.risk;refresh();
+        const risk=response.risk;
+        const accepted=confirm((state.language==='ar'?'خسارة تقديرية أكثر من 10% بعد الضريبة':'Estimated loss above 10% after tax')+'\n'+
+          'Buy: '+fmt(item.price)+' · Resale reference: '+fmt(risk.reference)+' · Net: '+fmt(risk.net)+'\n'+risk.lossPct.toFixed(1)+'% loss · '+response.riskSource);
+        if(!accepted){stop('تم إلغاء الشراء بسبب الخسارة التقديرية.');return;}
+        if(!state.running||state.token!==token)return;
+        response=await Page.request('buy',{...args,approvedRiskKey:response.riskKey});
+      }
+      if(response.status==='bought'){
+        if(state.activeSessionId===response.sessionId&&!state.receipts.has(response.receiptId)){
+          state.receipts.add(response.receiptId);state.bought=response.buys;state.spent=response.spent;
+          state.lastRisk=response.risk;addLog('EA purchase confirmed · '+response.tradeId+' · '+fmt(response.price)+' Coins','success');refresh();
+        }
+        return;
+      }
+      if(response.status==='missed'){state.misses++;addLog(response.reason,'warning');refresh();continue;}
+      throw Error('EA purchase needs a new price/risk verification; no purchase confirmed.');
     }
   }
   async function run(o,token){
     try{while(state.running&&state.token===token&&state.searches<o.maxSearches&&state.bought<o.maxBuys){
       if(blocked())throw Error('تم اكتشاف رسالة حماية.');
       if(state.pageMode){
-        const started=Date.now();state.nextIntervalMs=Core.randomInterval(rangeConfig().minMs,rangeConfig().maxMs);
+        const started=Date.now();state.cycleStart=performance.now();phase('searching');state.nextIntervalMs=Core.randomInterval(rangeConfig().minMs,rangeConfig().maxMs);
         const ready=await Page.request('connect');mergePageSnapshot(ready.snapshot);
         if(ready.snapshot.criteriaKey!==o.criteriaKey)throw Error('Native EA filters changed; restart the session to confirm them.');
         if(!state.running||token!==state.token)return;
@@ -785,12 +835,12 @@
         refresh();
         const response=await Page.request('search',{maxBin:o.maxPrice,criteriaKey:o.criteriaKey,playerId:state.selected?Number(state.selected.playerId||state.selected.itemId):null});
         if(!state.running||token!==state.token)return;
-        state.searches++;state.nativeItems=response.items;displayNativeOffers();
+        state.searches++;state.nativeSearchId=response.searchId;state.nativeItems=response.items;displayNativeOffers();
         addLog('EA native search #'+state.searches+' · confirmed response: '+response.count+' listing(s)','success');
         await checkNativeOffers(o,token);
         state.lastCycleMs=Date.now()-started;
         captureVisibleLowestQuiet();refresh();
-        if(state.running){const rest=Math.max(0,state.nextIntervalMs-state.lastCycleMs);if(rest)await nap(rest);}
+        if(state.running&&state.bought<o.maxBuys&&state.searches<o.maxSearches)await waitCycle(token);
         continue;
       }
       let b=findNativeSearchButton();if(!b){const back=findBackButton();if(back){back.click();await nap(450);b=findNativeSearchButton();}}
@@ -806,6 +856,7 @@
   }
   async function start(){
     if(state.running||state.starting)return;
+    clearTimeout(searchTimer);state.pendingQuery++;
     const startToken=++state.token;state.starting=true;refresh();
     try{
     if(state.selectedTargets.length>1){addLog('تم اختيار عدة بطاقات؛ السوق الأصلي لا يدعم البحث المتعدد من الواجهة الحالية. استخدم بطاقة واحدة أو اكمل ربط القوائم أولًا.','warning');$('compatPanel').open=true;compatibilityAudit();return;}
@@ -835,9 +886,14 @@
       addLog('لم نستطع التحقق أن Max Buy Now انتقل إلى EA؛ لن نبدأ بحثًا بسعر غير محدد.','error');return;
     }
     if(blocked()){addLog('رسالة حماية ظاهرة؛ لن يبدأ المحرك.','error');return;}
-    if(o.autoBuy && !confirm(`CODEX SNIPE سوف يحاول تنفيذ Buy Now تلقائيًا\n\nMax Buy: ${fmt(o.maxPrice)} Coins\nSession Budget: ${fmt(o.maxSpend)} Coins\nMax Purchases: ${o.maxBuys}\n\nتحذير: EA تمنع Auto Buyers وقد يتعرض حسابك للحظر. قبولك لا يعني أن الشراء آمن. هل تريد البدء؟`))return;
+    if(o.autoBuy&&!state.pageMode){addLog('Auto Buy يحتاج جسر MAIN ودالة شراء EA الأصلية.','error');return;}
+    if(state.pageMode){
+      const ref=numeric('referencePrice');if(input('referencePrice')&&(!Number.isSafeInteger(ref)||ref<150||ref>15000000)){addLog('أدخل سعر بيع مرجعي صحيحًا لنفس نسخة البطاقة.','error');return;}
+      const native=await Page.request('beginSession',{criteriaKey:o.criteriaKey,maxPrice:o.maxPrice,maxSpend:o.maxSpend,maxBuys:o.maxBuys,autoBuy:o.autoBuy,itemId:o.itemId,minRating:o.minRating,maxRating:o.maxRating,referencePrice:ref||null});
+      o.sessionId=native.sessionId;state.activeSessionId=native.sessionId;
+    }
     if(startToken!==state.token)return;
-    state.token++;state.running=true;state.started=Date.now();state.ended=0;state.lastCycleMs=0;state.nextIntervalMs=0;state.searches=0;state.matches=0;state.bought=0;state.misses=0;state.spent=0;state.status='يبحث';state.logs=[];
+    state.token++;state.running=true;state.started=Date.now();state.ended=0;state.startedMono=performance.now();state.endedMono=null;state.cycleStart=null;state.receipts=new Set();state.phase='searching';state.lastRisk=null;state.lastCycleMs=0;state.nextIntervalMs=0;state.searches=0;state.matches=0;state.bought=0;state.misses=0;state.spent=0;state.status='يبحث';state.logs=[];
     addLog(o.autoBuy?'بدأ Auto Snipe (اختيار صريح)':'بدأ البحث في وضع التنبيه بدون شراء','success');refresh();save();run(o,state.token);
     }finally{state.starting=false;refresh();}
   }
@@ -854,6 +910,7 @@
   }
   function bindUI(){
     $('close').addEventListener('click',closePanel);
+    for(const id of ['referencePrice','maxBin'])$(id).addEventListener('input',()=>{state.lastRisk=null;refresh();});
     $('player').addEventListener('input',()=>{clearTimeout(searchTimer);searchTimer=setTimeout(searchPlayers,430);});
     $('addEvent').addEventListener('click',addEvent);
     $('clearTargets').addEventListener('click',async()=>{
@@ -908,9 +965,9 @@
       if(config.language==='en')setLanguage('en');
       fillSettings(config.settings||{});populatePresets();updateSpeedControls();renderLogs();renderTargets();renderEvents();updateDatalists();}
     catch(e){addLog('تعذر قراءة الإعدادات المحلية: '+e.message,'warning');}
-    updateSpeedControls();observeNav();refresh();timer=setInterval(refresh,1000);
+    updateSpeedControls();observeNav();refresh();timer=setInterval(refresh,200);
     window.addEventListener('pagehide',()=>{if(state.running)stop('صفحة EA اتقفلت أو اتحدثت');});
-    addLog('واجهة CODEX SNIPE v3.4.2 جاهزة — بانتظار اكتشاف قائمة EA.');
+    addLog('واجهة CODEX SNIPE v3.5.0 جاهزة — بانتظار اكتشاف قائمة EA.');
   }
   if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',init,{once:true});else init();
 })();

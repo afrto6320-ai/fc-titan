@@ -1,3 +1,13 @@
+# 3.5.0
+- Scope events to verified selected-player concept editions intersected with supported native filters; disclose catalogue failures instead of substituting a general list.
+- Replace native-search/DOM-purchase linking with a MAIN-world session and UTItemActionController.bid on the exact returned item object.
+- Recheck identity, live price, wallet, auction state and immutable session caps before dispatch.
+- Count purchases/spend only on native success plus isWon; handle misses, uncertain outcomes, duplicate attempts and Stop receipts separately.
+- Remove the extension's general Auto Buy confirmation. Confirm only known estimated after-tax loss above 10%, bound to the exact trade/price/reference.
+- Add optional expected resale and native per-item market-average reference, clearly marking unknown loss.
+- Replace the interval needle with an actual phase/countdown SVG ring and monotonic HH:MM:SS clock. Stop freezes time; session limits stop immediately.
+- Add source-derived native bid tests, edition scoping, price/identity/budget rejection, loss approval, in-flight Stop and uncertain-receipt coverage.
+
 # 3.4.2
 - Default player lookup connects to EA; share in-flight connection work across callers.
 - Select from cached native suggestions by their exact IDs and issued pool tokens, avoiding full-name requery failures.
