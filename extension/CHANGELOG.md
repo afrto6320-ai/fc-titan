@@ -1,3 +1,8 @@
+# 3.9.3
+- Increase small dashboard copy by roughly one pixel and use heavier body/field text, while retaining existing card, portrait, input and action-bar geometry.
+- Keep prominent clocks, counters, icons, spacing and control dimensions. Preserve existing title/metadata line boxes in pinned cards.
+- Manually compare before/after dimensions at 1500px and 600px widths in Chromium: sampled cards, portraits, fields, buttons, dock, panel headers and folded pricing retain their sizes with no horizontal overflow. Search, purchase and pricing logic are unchanged.
+
 # 3.9.2
 - Diagnose the uploaded price failure before the provider stage: missing runtime.sendMessage, null provider status and an older 3.9.0 UI were present in the log; they do not establish a new provider HTTP denial.
 - Add an isolated extension API client that retains the initialized runtime/storage objects, detects invalidated contexts, bounds worker response time, and separates worker/messaging failures from provider replies without fallback requests.

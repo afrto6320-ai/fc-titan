@@ -226,3 +226,27 @@ hr{height:1px;border:0;background:#273742;margin:14px 0}
 .price-controls>summary{cursor:pointer;font-size:12px;font-weight:750;color:#d9e9dd;padding:2px 0;list-style:none;display:flex;align-items:center;justify-content:space-between;gap:12px}
 .price-controls>summary::after{content:'＋';color:var(--mint);font-size:17px}.price-controls[open]>summary::after{content:'−'}.price-controls[open]>summary{margin-bottom:14px}.price-controls>summary:focus-visible{outline:2px solid var(--mint);outline-offset:5px;border-radius:3px}
 .native-select:disabled{cursor:default;opacity:.5}#clubHint:empty{display:none}#clubHint{font-size:10px;line-height:1.5}
+
+/* 3.9.3 readability: increase small copy, retain existing control and card geometry. */
+:host{font-weight:600}
+.field>span{font-size:12px;font-weight:700}
+.field input,.field select,.native-select{font-size:13px;font-weight:600}
+.panel-head h3{font-weight:800}
+.panel-body p.desc{font-size:12px;line-height:19.8px}
+.muted,.timer-sub,.speed-sub{font-size:12px;line-height:17.6px}
+.native-status{font-size:12px;line-height:18.7px}
+.inline-warning{font-size:12px;line-height:18.15px}
+.log-row p{font-size:12px;line-height:16.5px}
+.log-row time,.mini-bar,.metric small,.substat span,.status-line small,.field .help,#clubHint{font-size:11px}
+#clubHint{line-height:15px}
+.native-option,.native-mini-state,.native-offer-info b,.connect-step,.cycle-details,.clock-range,.market-low small,.active-target-strip,.dock-summary>span{font-size:12px}
+.native-option-info small,.native-offer-info small,.native-option-group summary small,.card-reference,.market-card-price small{font-size:11px;font-weight:600}
+.native-option-group summary small{font-weight:600}
+.quote-box,.selected-empty{font-size:13px;line-height:21.6px}
+.price-controls>summary{font-weight:800}.selection-head strong,.active-target-strip b{font-size:13px}
+.rdata b{font-size:16px;line-height:18px}.rdata small{font-size:12px}
+.target-card-select>strong{font-size:13px;line-height:16.8px;font-weight:750}
+#selectedTargets[data-count="1"] .target-card-select>strong{font-size:16px;line-height:21px}
+.market-card-info p{font-size:12px;line-height:13px;font-weight:600}
+.provider-actions{font-size:12px}
+@media(max-width:650px){.market-card-info p{font-size:10px;line-height:11px}}
