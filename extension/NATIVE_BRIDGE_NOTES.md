@@ -1,3 +1,13 @@
+# v3.9.1 dependent clubs and price disclosure
+
+Club options now reject missing/Any league before reading the native option collection. The selector's enabled state includes native EA interaction locks and the league requirement. A club picker token binds the current native league ID and rejects selection after a league change, even if the old collection happens to contain the same rows. Native league changes remain responsible for resetting dependent clubs; the returned snapshot updates the interface. No additional invented club catalogue or cross-league union is introduced.
+
+Price controls use a native details disclosure with persisted open state. Fields remain mounted while closed, so quotes, caps and chosen editions do not change. Panel open states are restored by stable panel keys/IDs after language rebuilds, rather than by DOM index. HTTP 403 retains the provider failure and no-quote outcome, expands the price section, and explains that access denial does not identify an exact cause or guarantee a browser-site workaround. Existing provider code sends no EA cookies, makes no alternate-route retry after 403/429, and performs no silent fallback.
+
+The environment still cannot reach the price-provider hosts under its enforced runtime policy. There is no live-account or live Futbin verification for this patch. Synthetic browser tests exercise native league reset, denied raw club requests, native lock/stale picker behavior, field order and denied-price prevention; Node tests retain provider denial/no-retry coverage.
+
+---
+
 # v3.9.0 native SDK search, view price linkage and compact controls
 
 The supplied Network screenshot shows repeated successful XHR requests with `macr=6900&maxb=7000`. It proves requests were dispatched with identical visible parameters; HTTP 200 and ~70ms latency alone do not establish the source or lifetime of caching. There is no connection from this environment to the user's live DevTools session.

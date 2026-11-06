@@ -32,7 +32,7 @@
     const c = context();
     const marketAllowed = c.game && typeof window.services?.TransferMarket?.isFeatureEnabledForUser === 'function'
       ? window.services.TransferMarket.isFeatureEnabledForUser() === true : false;
-    return {bridgeVersion:'3.9.0',mode:'page-functions', appReady:c.game, marketAllowed,
+    return {bridgeVersion:'3.9.1',mode:'page-functions', appReady:c.game, marketAllowed,
       controller:text(c.controller?.constructor?.name), hasForm:isFilter(c.controller),
       hasResults:Boolean(resultController(c.controller)), busy:Boolean(activeCommand||activeSearch||activePurchase),
       capabilities:{navigation:typeof c.root?.setGameViewTab === 'function',
@@ -101,7 +101,7 @@
     const player = view?.getPlayerNameSearch?.()?.getSelected?.();
     const selections = {};
     for (const kind of Object.keys(keys)) {
-      try {const ctrl=control(kind);selections[kind]={id:number(ctrl.id),label:window.CodexEAOptions?.resolvedName(ctrl.label)||`EA ${kind} #${ctrl.id}`,enabled:ctrl.isInteractionEnabled?.() !== false};}
+      try {const ctrl=control(kind);selections[kind]={id:number(ctrl.id),label:window.CodexEAOptions?.resolvedName(ctrl.label)||`EA ${kind} #${ctrl.id}`,enabled:ctrl.isInteractionEnabled?.() !== false&&(kind!=='club'||number(q.league)>0)};}
       catch { selections[kind]=null; }
     }
     const criteriaKey=JSON.stringify([number(q.maskedDefId),Object.keys(keys).map(k=>selections[k]?.id??null),q.rarities||[]]);
@@ -110,6 +110,7 @@
       maskedDefId:number(q.maskedDefId),rarities:Array.isArray(q.rarities)?q.rarities.filter(Number.isFinite):[],selections};
   }
   async function options(kind,refresh=false) {
+    if(kind==='club'&&!(number(filters().viewmodel.searchCriteria.league)>0))fail('LEAGUE_REQUIRED','Choose an EA league before opening Club.');
     const ctrl = control(kind), entries = ctrl.getOptions();
     if (!Array.isArray(entries) || entries.length>10000) fail('UNSUPPORTED', 'Invalid native option collection.');
     const playerId=readFilters().player?.id||null;
@@ -146,13 +147,14 @@
       presented.options=presented.options.filter(x=>x.id===-1||ids.has(x.id));
       presented.meta={...presented.meta,uniqueCount:presented.options.length,playerId,scope:'selected-player',editionCount:editions.items.length,verifiedAt:editions.at};
     }
-    picker = {ctrl,entries,kind,token,playerId,owner:filters(),signatures:entries.map(model.identity),indices:new Set(presented.options.map(x=>x.index)),labels:new Map(presented.options.map(x=>[x.index,x.label]))};
+    picker = {ctrl,entries,kind,token,playerId,leagueId:kind==='club'?number(filters().viewmodel.searchCriteria.league):null,owner:filters(),signatures:entries.map(model.identity),indices:new Set(presented.options.map(x=>x.index)),labels:new Map(presented.options.map(x=>[x.index,x.label]))};
     return {ok:true,mode:'page-functions',token,...presented};
   }
   function choose(args) {
     const p=picker;
     if (!p || args.token!==p.token || p.owner!==filters() || control(p.kind)!==p.ctrl || readFilters().player?.id!==p.playerId && !(readFilters().player==null&&p.playerId==null))
       fail('STALE_OPTIONS','Reopen the native filter list.');
+    if(p.kind==='club'&&(!(p.leagueId>0)||number(filters().viewmodel.searchCriteria.league)!==p.leagueId))fail('STALE_OPTIONS','The league changed; reopen Club for the current league.');
     if (!Number.isInteger(args.index) || !p.indices.has(args.index)) fail('BAD_ARGUMENT','Invalid option index.');
     const current=p.ctrl.getOptions(), chosen=p.entries[args.index];
     if (current.length!==p.entries.length || current.some((v,i)=>window.CodexEAOptions.identity(v)!==p.signatures[i]))

@@ -1,3 +1,10 @@
+# 3.9.1
+- Require a confirmed selected EA league before opening Club, in both the interface and MAIN command boundary. Respect native Club locks and reject a stale club picker after its league changes.
+- Move rarity/event beside quality, place the full-width Item ID below league/club, and move rating limits below Item ID.
+- Make price references an initially collapsed details section; persist its open state and preserve input values and panel states across language changes.
+- Explain Futbin HTTP 403 denial without claiming a known cause or successful workaround; expand pricing on failure and keep provider-priced search blocked without a verified quote.
+- Extend browser regressions for league dependency/reset, revised field geometry, price disclosure and denied-price search prevention; retain no-retry 403 provider tests.
+
 # 3.9.0
 - Default to MAIN-world `services.Item.searchTransferMarket` using a cloned native DTO, keeping original category/player/rarity filters and independent bid/BIN prices. Retain the native screen route as an explicit option.
 - Correct the previous ladder assumption: the original EA view links Max Bid to Max Buy Now. Validate all final screen prices together to detect later field rewrites; use prepared SDK plans for independent ladder values.

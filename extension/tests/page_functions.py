@@ -98,6 +98,8 @@ with sync_playwright() as p:
     print('PASS: catalogue 50540979 to EA 209331, prefix-only engine, one-click native connection and confirmation')
     print('PASS: actual Chromium isolated world; native navigation without a DOM Search button')
 
+    assert sh.locator('[data-native-picker="club"]').is_disabled()
+    assert request('options',{'kind':'club'})['code']=='LEAGUE_REQUIRED'
     sh.locator('[data-native-picker="league"]').click()
     sh.locator('.native-option').filter(has_text='LaLiga').click()
     page.wait_for_function('__nav.currentController.viewmodel.searchCriteria.league===53')
@@ -106,6 +108,13 @@ with sync_playwright() as p:
     assert sh.locator('.native-option').filter(has_text='Liverpool').count()==0
     sh.locator('.native-option').filter(has_text='Real Madrid').click()
     page.wait_for_function('__nav.currentController.viewmodel.searchCriteria.club===243')
+    sh.locator('[data-native-picker="league"]').click();sh.locator('.native-option').filter(has_text='Any league').click()
+    page.wait_for_function('__nav.currentController.viewmodel.searchCriteria.league===-1')
+    assert sh.locator('[data-native-picker="club"]').is_disabled()
+    assert page.evaluate('__nav.currentController.viewmodel.searchCriteria.club')==-1
+    assert request('options',{'kind':'club'})['code']=='LEAGUE_REQUIRED'
+    sh.locator('[data-native-picker="league"]').click();sh.locator('.native-option').filter(has_text='LaLiga').click()
+    sh.locator('[data-native-picker="club"]').click();sh.locator('.native-option').filter(has_text='Real Madrid').click()
     print('PASS: native option collections, selection handlers, dependent club choices')
 
     sh.locator('#player').fill('Salah')
@@ -258,6 +267,8 @@ with sync_playwright() as p:
     opts=request('options',{'kind':'league'})['result']
     assert request('choose',{'token':opts['token'],'index':1})['code']=='FILTER_LOCKED'
     assert request('clearPlayer')['ok']
+    opts=request('options',{'kind':'league'})['result']
+    assert request('choose',{'token':opts['token'],'index':2})['ok']
     opts=request('options',{'kind':'club'})['result']
     page.evaluate('__nav.currentController.viewmodel.searchCriteria.league=13')
     assert request('choose',{'token':opts['token'],'index':1})['code']=='STALE_OPTIONS'
@@ -278,6 +289,7 @@ with sync_playwright() as p:
       ctrl.iconTable=new Map([['9','/test-badges/missing.png'],['10','/test-badges/also-missing.png']]);
       view.getFilters=()=>({...fields,generateFilterImage:(kind,id)=>id===9?'/test-badges/fallback.svg':''});
     })()''')
+    sh.locator('[data-native-picker="league"]').click();sh.locator('.native-option').filter(has_text='Premier League').click()
     sh.locator('[data-native-picker="club"]').click()
     sh.locator('.native-option-group summary').wait_for()
     assert sh.locator('#nativePickerResults').inner_text().count('Same Club')==1
@@ -362,21 +374,34 @@ with sync_playwright() as p:
 
     # Selected external source drives the cap; the native Max Buy Now remains a hard ceiling.
     page.evaluate('window.__testPages=undefined;window.__testDelay=50;window.__testItems=[]')
-    mock_prices="""window.__priceCalls=[];chrome.runtime.sendMessage=async m=>{window.__priceCalls.push(m);if(window.__priceFail)return {ok:false,error:'provider unavailable test'};const p=m.payload;return {ok:true,result:{quotes:[{provider:p.provider,platform:p.platform,itemId:p.ids[0],price:1200,retrievedAt:Date.now(),providerUpdatedAt:null}]}};};"""
+    mock_prices="""window.__priceCalls=[];chrome.runtime.sendMessage=async m=>{window.__priceCalls.push(m);if(window.__priceFail)return {ok:false,error:'provider unavailable test',status:window.__priceStatus||null};const p=m.payload;return {ok:true,result:{quotes:[{provider:p.provider,platform:p.platform,itemId:p.ids[0],price:1200,retrievedAt:Date.now(),providerUpdatedAt:null}]}};};"""
     cdp.send('Runtime.evaluate',{'contextId':world,'expression':mock_prices})
+    assert sh.locator('#priceControls').get_attribute('open') is None
+    sh.locator('#priceControls > summary').click()
     sh.locator('#loadEditions').click();sh.locator('#priceEdition option[value="50540979"]').wait_for(state='attached')
     sh.locator('#priceEdition').select_option('50540979');page.wait_for_function("()=>!document.querySelector('#gpts-v3-host').shadowRoot.querySelector('#priceEdition').disabled");sh.locator('#priceSource').select_option('futbin');sh.locator('#pricePlatform').select_option('pc');sh.locator('#pricePercent').fill('75')
     sh.locator('#maxSearches').fill('1');sh.locator('#start').click()
     page.wait_for_function('window.__nativeMaxBin===900')
     page.wait_for_function("()=>!document.querySelector('#gpts-v3-host').shadowRoot.querySelector('#start').disabled")
     assert 'FUTBIN' in sh.locator('#quoteBox').inner_text() and '1,200' in sh.locator('#quoteBox').inner_text()
+    sh.locator('#priceControls > summary').click()
+    assert sh.locator('#priceControls').get_attribute('open') is None
+    assert sh.locator('#priceSource').input_value()=='futbin' and sh.locator('#itemId').input_value()=='50540979'
+    sh.locator('#priceControls > summary').click()
     assert sh.locator('#maxBin').input_value()=='1000'
     baseline=page.evaluate('__testSearches')
     cdp.send('Runtime.evaluate',{'contextId':world,'expression':'window.__priceFail=true'})
     sh.locator('#start').click();page.wait_for_timeout(250)
     assert page.evaluate('__testSearches')==baseline
     assert 'provider unavailable test' in sh.locator('#logs').inner_text()
-    cdp.send('Runtime.evaluate',{'contextId':world,'expression':'window.__priceFail=false'})
+    cdp.send('Runtime.evaluate',{'contextId':world,'expression':'window.__priceStatus=403'})
+    sh.locator('#priceControls > summary').click()
+    baseline=page.evaluate('__testSearches')
+    sh.locator('#start').click()
+    sh.locator('#priceControls[open]').wait_for(state='attached')
+    assert '403' in sh.locator('#logs').inner_text() and page.evaluate('__testSearches')==baseline
+    assert sh.locator('#priceSource').input_value()=='futbin'
+    cdp.send('Runtime.evaluate',{'contextId':world,'expression':'window.__priceFail=false;window.__priceStatus=0'})
     sh.locator('#priceSource').select_option('manual');sh.locator('#itemId').fill('');sh.locator('#pricePercent').fill('100')
     print('PASS: exact-edition/PC provider quote sets effective search cap, manual Max Buy Now stays intact, provider failure prevents starting')
 
@@ -421,6 +446,9 @@ with sync_playwright() as p:
 
     # Stable workspace layout, positions and pinned multi-player cards.
     assert sh.locator('[data-panel-key="players"] #transferSection #priceSource').count()==1
+    event=sh.locator('[data-native-picker="event"]').bounding_box();quality=sh.locator('[data-native-picker="quality"]').bounding_box()
+    item=sh.locator('#itemId').bounding_box();low=sh.locator('#ratingMin').bounding_box();high=sh.locator('#ratingMax').bounding_box()
+    assert abs(event['y']-quality['y'])<2 and item['y']>event['y'] and low['y']>item['y'] and abs(low['y']-high['y'])<2
     assert sh.locator('.column.right > [data-panel-key="logs"] + [data-panel-key="connection"]').count()==1
     sh.locator('#editLayout').click()
     original_cap=sh.locator('#maxBin').input_value()

@@ -221,3 +221,8 @@ hr{height:1px;border:0;background:#273742;margin:14px 0}
 .run-dock .dock-actions{margin:0;display:flex;flex-wrap:wrap;align-items:center;gap:8px}.run-dock button{min-width:90px;padding:10px 15px}.run-dock #stop{min-width:90px}.run-dock #dockScan{min-width:90px}
 #shell{padding-bottom:calc(var(--run-dock-height,78px) + 28px)}.market-panel.market-full{bottom:calc(var(--run-dock-height,78px) + 24px)}.scroll-top{bottom:calc(var(--run-dock-height,78px) + 28px)}.toast-stack{bottom:calc(var(--run-dock-height,78px) + 30px)}
 @media(max-width:760px){.run-dock{inset-inline:10px;bottom:8px;padding:9px 10px;gap:8px}.dock-summary{display:none}.run-dock .dock-actions{justify-content:center;width:100%}.run-dock button{padding:9px 11px;min-width:75px;flex:1}.run-dock #savePreset{font-size:10px;min-width:85px}.run-dock #stop,.run-dock #dockScan{min-width:75px}}
+
+/* Compact price disclosure and dependent club control. */
+.price-controls>summary{cursor:pointer;font-size:12px;font-weight:750;color:#d9e9dd;padding:2px 0;list-style:none;display:flex;align-items:center;justify-content:space-between;gap:12px}
+.price-controls>summary::after{content:'＋';color:var(--mint);font-size:17px}.price-controls[open]>summary::after{content:'−'}.price-controls[open]>summary{margin-bottom:14px}.price-controls>summary:focus-visible{outline:2px solid var(--mint);outline-offset:5px;border-radius:3px}
+.native-select:disabled{cursor:default;opacity:.5}#clubHint:empty{display:none}#clubHint{font-size:10px;line-height:1.5}
