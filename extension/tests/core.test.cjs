@@ -1,0 +1,21 @@
+const assert = require('node:assert/strict');
+const {coins,options,validate,match,canBuy} = require('../snipe-core.js');
+assert.equal(coins('1,500'),1500);
+assert.equal(coins('١٬٥٠٠'),1500); // Arabic numerals and group separator
+assert.equal(coins('1500'),1500);
+assert.equal(coins('1.5k'),1500);
+assert.equal(coins('bad'),null);
+assert.equal(coins('0'),null);
+assert.equal(coins('999,999'),999999);
+assert.throws(()=>validate(options({maxPrice:0,maxSpend:3000})),/Max Buy Now/);
+assert.throws(()=>validate(options({maxPrice:1000,maxSpend:500})),/ميزانية/);
+assert.throws(()=>validate(options({maxPrice:1000,maxSpend:2000,minRating:90,maxRating:85})),/للتقييم/);
+const config=validate(options({maxPrice:1000,maxSpend:2000,maxBuys:2,rarity:'Gold',target:'Ronaldo',minRating:80,maxRating:95}));
+assert.equal(match({name:'Cristiano Ronaldo',rarity:'Gold Rare',price:900,rating:91},config).ok,true);
+assert.equal(match({name:'Cristiano Ronaldo',rarity:'Icon',price:900,rating:91},config).ok,false);
+assert.equal(match({name:'Cristiano Ronaldo',rarity:'Gold Rare',price:1100,rating:91},config).ok,false);
+assert.equal(match({name:'Cristiano Ronaldo',rarity:'Gold Rare',price:null,rating:91},config).ok,false);
+assert.equal(match({name:'Cristiano Ronaldo',rarity:'Gold Rare',price:900,rating:null},config).ok,false);
+assert.equal(canBuy({name:'Cristiano Ronaldo',rarity:'Gold Rare',price:900,rating:91},config,1500,0).ok,false);
+assert.equal(canBuy({name:'Cristiano Ronaldo',rarity:'Gold Rare',price:900,rating:91},config,100,0).ok,true);
+console.log('GPT SNIPE core: 16 assertions passed');

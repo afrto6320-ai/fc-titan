@@ -1,0 +1,837 @@
+/* GPT SNIPE v3.4 embedded interface; never accesses EA authentication tokens or private APIs. */
+(() => {
+  'use strict';
+  if (window.__GPT_SNIPE_V3__) return;
+  window.__GPT_SNIPE_V3__ = true;
+  const Core = window.GPTSnipeCore;
+  const Native = window.GPTNativeMarket;
+  const Page = window.GPTPageClient;
+  const STORAGE = 'gpts_embedded_v3';
+  const READY = 'جاهز';
+  const state = {
+    open:false, running:false, starting:false, token:0, searches:0, matches:0, bought:0, misses:0, spent:0,
+    started:0, ended:0, status:READY, logs:[], players:[], cache:[], selected:null,
+    presets:{}, lastProvider:'لم يتم البحث', lastNative:'لم يتم فحص صفحة السوق', pendingQuery:0, speedValue:0, speedTarget:0, speedMinMs:2000, speedMaxMs:5000, nextIntervalMs:0, lastCycleMs:0, selectedTargets:[], language:'ar', lastAudit:null, auditLog:[], lowestObserved:null, eventTargets:[], nativeChoices:{}, nativeConnectInProgress:false, pickerOptions:[], pickerKind:"", nativePlayerConfirmed:false, pageMode:false, pageSnapshot:null, pageConnection:null, nativeItems:[]
+  };
+
+  const TRANSLATIONS = {"ar":{"back":"↩ الرجوع إلى EA","title":"مركز تحكم GPT SNIPE","subtitle":"فلترة وبحث من داخل Web App مع مراقبة الاتصال والنتائج — بدون ادعاء وجود بيانات سوق غير متاحة.","hint":"الكتالوج الخارجي ليس سوق EA. افتح شاشة Transfer Market Search الأصلية لتأكيد ربط السوق.","language":"اللغة / Language","players":"البحث عن اللاعبين والبطاقات","player_search":"ابحث بالاسم أو Player ID","player_placeholder":"مثال: Salah, Messi, Mbappé","player_note":"الصور والبطاقات من كتالوج خارجي، ليست عروض انتقالات مباشرة.","pick":"قائمة اللاعبين المختارين","pick_note":"اختيار لاعب يحدد الاسم والـID. عند اختيار عدة لاعبين يلزم دعم الربط الأصلي لكل هدف.","clear":"مسح الاختيارات","filters":"فلاتر Transfer Market","bridge_note":"القوائم غير المكتشفة تُعرض كمفقودة، ولا نحاول تخمين أسماء خيارات EA.","item":"Player / Item ID","quality":"Quality / Rarity / Event","minrating":"أقل تقييم","maxrating":"أعلى تقييم","position":"المركز","nation":"البلد / الجنسية","league":"الدوري","club":"النادي","minbid":"Min Bid","maxbid":"Max Bid","minbin":"Min Buy Now","maxbin":"Max Buy Now (Coins)","event":"اسم الحدث / الإصدار (كتالوج)","catalog_hint":"اقتراحات البلد والنادي والدوري مبنية على البطاقات التي تم تحميلها فقط، وليست القائمة الكاملة من EA.","inspect":"فحص الفلاتر","sync":"تطبيق المدعوم","native":"افتح سوق EA","map":"خريطة DOM","native_pending":"افتح شاشة البحث الأصلية في EA أولًا.","engine":"إعدادات السنايب","speedpreset":"نطاق سرعة البحث","speedmin":"أقل زمن (ثانية)","speedmax":"أعلى زمن (ثانية)","speedhelp":"في كل دورة يتم اختيار زمن جديد داخل المدى. المؤشر يعرض الوقت المختار فعلاً؛ الاستجابة قد تستغرق أكثر.","maxsearches":"أقصى عدد بحث","maxbuys":"أقصى عدد مشتريات","budget":"ميزانية الجلسة","autobuy":"Auto Buy Now — متوقف افتراضيًا","autobuy_note":"عند تفعيله ستظهر موافقة صريحة، ويتوقف عند أي عدم وضوح في السعر.","start":"▶ بدء البحث","stop":"■ إيقاف","preset_save":"حفظ إعدادات","presets":"الإعدادات المحفوظة","warning":"محرك السوق لم يتم التحقق منه على حساب EA حقيقي. لا توجد محاولات لتجاوز CAPTCHA أو قيود EA.","stats":"عدادات الجلسة","runtime":"مدة تشغيل البحث","speed":"زمن البحث المختار","speeddetail":"عينة المدى للجولة القادمة — ليست Ping أو سرعة خادم EA","actual":"مدة آخر دورة فعلية","next":"الفاصل القادم","searches":"عمليات بحث","matches":"مطابقات","bought":"شراء مؤكد","misses":"فشل/انتهاء","spent":"Coins مصروفة","status":"الحالة","mode":"الوضع","lowest":"أقل سعر ظاهر في النتائج","lowestNote":"أقل Buy Now من العناصر المقروءة بالصفحة فقط، ليس أقل سعر السوق كله.","checkLowest":"فحص السعر الظاهر","logs":"سجل النشاط","csv":"تصدير CSV","copylog":"نسخ اللوج","txtlog":"تصدير TXT","lognote":"سجلات الجهاز فقط. لا تحفظ الإضافة كلمات مرور أو كوكيز.","compat":"فحص توافق EA — أخضر / أحمر","compatdesc":"الفحص يميّز بين عنصر موجود، عنصر مفقود، وشاشة غير مفتوحة. الأحمر لا يظهر إلا عند توقع عنصر ولم يُعثر عليه.","rescan":"إعادة الفحص","copydiag":"نسخ التقرير","txtdiag":"تصدير التقرير TXT","jsondiag":"تصدير JSON","diagnosticlogs":"لوج الفحص التقني","copysys":"نسخ التشخيص","txtsys":"تصدير TXT","datalink":"مصدر البيانات وحالة السوق","datahelp":"المعلومات من FUT.GG؛ عناصر سوق EA الحية تُقرأ فقط إذا كانت صفحة النتائج ظاهرة.","none":"غير متوفر","marketneeded":"يلزم فتح شاشة البحث الأصلية","selclear":"إزالة","all_quality":"كل الأنواع","empty":"لا توجد بيانات بعد","searchhint":"اكتب حرفين على الأقل.","notlinked":"غير مربوط","no_presets":"اختر إعدادًا محفوظًا","notobserved":"لم تُقرأ عروض","cardcount":"بطاقة","connect":"ربط سوق EA الأصلي","connect_status":"حالة الاتصال بالسوق","connect_desc":"يفتح Transfers ثم Transfer Market ثم شاشة البحث باستخدام قوائم EA الأصلية. لو فشل ستظهر المرحلة المتوقفة.","connect_start":"اتصل بسوق EA","native_picker_title":"اختيار من قوائم EA الأصلية","native_picker_desc":"القائمة تُقرأ مباشرة من عناصر EA بعد الاتصال. الصور والأيقونات كما تظهر من المصدر، ولا نضيف خيارات وهمية.","native_picker_empty":"اتصل بالسوق أولًا، ثم اختر فئة من القوائم.","native_offers":"نتائج سوق EA الظاهرة","native_offers_desc":"النتائج الحقيقية التي يمكن قراءتها من واجهة السوق، وليست كتالوج FUT.GG.","refresh_offers":"قراءة نتائج EA"},"en":{"back":"↩ Back to EA","title":"GPT SNIPE Control Center","subtitle":"Embedded player lookup, market filters, and verified connection diagnostics.","hint":"External catalogues are not the EA market. Open the native Transfer Market Search screen to verify the bridge.","language":"Language / اللغة","players":"Player & Card Search","player_search":"Search by name or Player ID","player_placeholder":"e.g. Salah, Messi, Mbappé","player_note":"Card images come from an external catalogue, not live EA listings.","pick":"Selected Players","pick_note":"Selecting a card fills its name and ID. Multiple targets require a verified native binding.","clear":"Clear selected","filters":"Transfer Market Filters","bridge_note":"Unavailable EA controls are reported, never guessed.","item":"Player / Item ID","quality":"Quality / Rarity / Event","minrating":"Min Rating","maxrating":"Max Rating","position":"Position","nation":"Nation","league":"League","club":"Club","minbid":"Min Bid","maxbid":"Max Bid","minbin":"Min Buy Now","maxbin":"Max Buy Now (Coins)","event":"Promotion / Card Event (catalogue)","catalog_hint":"Nation, league and club suggestions come only from loaded catalogue cards, not the full EA lists.","inspect":"Inspect Native Filters","sync":"Apply Supported","native":"Open EA Market","map":"DOM Map","native_pending":"Open the native EA search screen first.","engine":"Engine Settings","speedpreset":"Search Interval Range","speedmin":"Minimum (seconds)","speedmax":"Maximum (seconds)","speedhelp":"A new interval is sampled each cycle. The gauge shows the selected interval, not server speed.","maxsearches":"Max Searches","maxbuys":"Max Purchases","budget":"Session Budget","autobuy":"Auto Buy Now — off by default","autobuy_note":"Requires explicit confirmation and stops if the price cannot be verified.","start":"▶ START SEARCH","stop":"■ STOP","preset_save":"Save Preset","presets":"Saved Presets","warning":"Native market automation is unverified on EA. No CAPTCHA or protection bypass.","stats":"Session Overview","runtime":"ACTIVE RUNTIME","speed":"SELECTED INTERVAL","speeddetail":"Sampled next interval — not EA server latency","actual":"Last completed cycle","next":"Next target interval","searches":"SEARCHES","matches":"MATCHES","bought":"BOUGHT","misses":"MISSES","spent":"COINS SPENT","status":"STATUS","mode":"SESSION MODE","lowest":"Lowest observed listing","lowestNote":"Lowest readable Buy Now on this page only, not the entire market.","checkLowest":"Scan visible prices","logs":"Activity Logs","csv":"Export CSV","copylog":"Copy Log","txtlog":"Export TXT","lognote":"Local-only log; no passwords or cookies collected.","compat":"EA Compatibility — green / red","compatdesc":"Checks distinguish supported, missing, and not-on-screen. Red means missing only when the target view is present.","rescan":"Run Diagnostics","copydiag":"Copy Report","txtdiag":"Export Report TXT","jsondiag":"Export JSON","diagnosticlogs":"Technical Diagnostics Log","copysys":"Copy Diagnostics","txtsys":"Export TXT","datalink":"Catalogue & Market Status","datahelp":"FUT.GG provides catalogue cards; market listings are read only from visible native EA result views.","none":"Unavailable","marketneeded":"Open native market search first","selclear":"Remove","all_quality":"All types","empty":"No data yet","searchhint":"Enter at least two characters.","notlinked":"Unlinked","no_presets":"Choose a saved preset","notobserved":"No listings read","cardcount":"cards","connect":"Connect EA Market","connect_status":"Native market connection","connect_desc":"Uses the original Transfers, Transfer Market and Search navigation. Reports where connection fails.","connect_start":"Connect to EA Market","native_picker_title":"Browse original EA choices","native_picker_desc":"Options are read only from rendered EA controls; images and icons are reused when available.","native_picker_empty":"Connect to the market first, then pick a category.","native_offers":"Native EA market listings","native_offers_desc":"Observed original EA listings, not FUT.GG catalogue cards.","refresh_offers":"Read EA results"}};
+  const tr = key => (TRANSLATIONS[state.language]||TRANSLATIONS.ar)[key]||key;
+  const fmt = v => Number(v || 0).toLocaleString('en-US');
+  const nap = ms => new Promise(resolve => setTimeout(resolve,ms));
+  const safe = x => String(x ?? '').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+  const visible = el => Boolean(el && el.isConnected && el.getClientRects().length && getComputedStyle(el).visibility !== 'hidden' && getComputedStyle(el).display !== 'none');
+  const normalize = x => String(x||'').normalize('NFKD').replace(/[\u0300-\u036f]/g,'').trim().toLowerCase();
+  let nav = null, portal = null, shadow = null, timer = null, observer = null, mountTimer = null, searchTimer = null;
+  const $ = id => shadow?.getElementById(id) || null;
+
+  function addLog(message,level='info') {
+    const entry={at:new Date().toISOString(),message:String(message).slice(0,500),level};
+    state.logs.unshift(entry); if(state.logs.length>160) state.logs.length=160;
+    if(shadow){renderLogs();if($('technicalLogs'))$('technicalLogs').textContent=technicalAsText();} save();
+  }
+  function save(){
+    const payload={presets:state.presets,logs:state.logs.slice(0,70),cache:state.cache.slice(0,80),selected:state.selected,selectedTargets:state.selectedTargets.slice(0,12),eventTargets:state.eventTargets.slice(0,15),language:state.language,settings:readSettingsSafe()};
+    try{chrome.storage.local.set({[STORAGE]:payload});}catch{}
+  }
+  function readSettingsSafe(){
+    if(!shadow) return {};
+    return Object.fromEntries(['player','itemId','ratingMin','ratingMax','quality','position','club','league','nation','minBid','maxBid','minBin','maxBin','interval','maxSearches','maxBuys','budget','autoBuy','speedPreset','speedMin','speedMax','event'].map(k=>[k,$(k)?.type==='checkbox'?$(k).checked:$(k)?.value||'']));
+  }
+  function input(id){return $(id)?.value.trim()||'';}
+  function numeric(id){return Number(input(id)||0);}
+  function fillSettings(obj={}){for(const [k,value] of Object.entries(obj)){const e=$(k);if(!e)continue;if(e.type==='checkbox')e.checked=Boolean(value);else e.value=value??'';}updateNativeLabels();}
+  function updateNativeLabels(){for(const id of ['quality','position','nation','league','club','event']){const el=$('nativeLabel'+id.charAt(0).toUpperCase()+id.slice(1));if(el)el.textContent=input(id)||'— EA';}}
+  function uiHTML(){return `
+  <main id="shell" dir="${state.language==='ar'?'rtl':'ltr'}" lang="${state.language}" aria-label="GPT SNIPE dashboard">
+    <header class="top"><div class="brand"><div class="mark" aria-hidden="true">◎</div><div><h1>GPT <span>SNIPE</span></h1><small>ULTIMATE TEAM · EMBEDDED CONSOLE · v3.4</small></div></div>
+      <div class="head-actions"><label class="lang-label">${tr('language')} <select id="language"><option value="ar" ${state.language==='ar'?'selected':''}>العربية</option><option value="en" ${state.language==='en'?'selected':''}>English</option></select></label><span id="connection" class="pill warn">● EA WEB APP</span><span id="runBadge" class="pill">● STANDBY</span><button type="button" id="close" class="ghost">${tr('back')}</button></div></header>
+    <div class="intro"><div><div class="eyebrow">ADVANCED TRANSFER WORKSPACE / V3.4</div><h2>${tr('title')}</h2><p>${tr('subtitle')}</p></div><div class="hint">${tr('hint')}</div></div>
+    <div class="layout">
+      <div class="column control">
+        <details class="panel collapsible" open><summary class="panel-head"><h3><em>⌕</em> ${tr('players')}</h3><span class="tiny-tag">PLAYER FINDER</span></summary>
+          <div class="panel-body"><label class="field full"><span>${tr('player_search')}</span><input id="player" autocomplete="off" type="search" placeholder="${tr('player_placeholder')}" aria-label="Player search"></label>
+          <p class="desc">${tr('player_note')}</p><div id="playerResults" class="results" aria-live="polite"><div class="muted">${tr('searchhint')}</div></div>
+          <div class="mini-bar"><span id="provider">FUT.GG</span><span id="cardCount">0 ${tr('cardcount')}</span></div>
+          <div class="selection-head"><strong>${tr('pick')}</strong><button id="clearTargets" class="ghost small" type="button">${tr('clear')}</button></div>
+          <div id="selectedTargets" class="target-list"></div><p class="desc">${tr('pick_note')}</p><div class="action-row"><button id="syncPlayerEA" class="secondary" type="button">↗ EA player autocomplete</button><span id="playerSyncState" class="native-mini-state">EA: not verified</span></div></div></details>
+        <details class="panel collapsible market-connection" open><summary class="panel-head"><h3><em>⬡</em> ${tr('connect')}</h3><span class="tiny-tag">NATIVE EA</span></summary>
+          <div class="panel-body"><p class="desc">${tr('connect_desc')}</p><div class="action-row"><button type="button" class="primary" id="connectEA">⚡ ${tr('connect_start')}</button><button type="button" class="secondary" id="refreshNative">${tr('inspect')}</button></div>
+          <div id="nativeConnectStatus" class="native-status">${tr('native_pending')}</div><div id="nativeConnectSteps" class="connect-steps"></div><button type="button" class="secondary" id="exportConnection">${state.language==='ar'?'تصدير تقرير الاتصال':'Export connection report'}</button></div></details>
+        <details class="panel collapsible" open><summary class="panel-head"><h3><em>⚙</em> ${tr('filters')}</h3><span class="tiny-tag">EA FILTER BRIDGE</span></summary>
+          <div class="panel-body"><p class="desc">${tr('bridge_note')}</p>
+           <div class="form-grid">
+            <label class="field"><span>${tr('item')}</span><input id="itemId" placeholder="Optional" inputmode="numeric"></label>
+            <div class="field"><span>${tr('quality')}</span><input id="quality" type="hidden"><button class="native-select" type="button" data-native-picker="quality"><span class="native-select-label" id="nativeLabelQuality">— EA</span><span>▾</span></button></div>
+            <label class="field"><span>${tr('minrating')}</span><input id="ratingMin" inputmode="numeric" type="number" min="1" max="99" placeholder="—"></label>
+            <label class="field"><span>${tr('maxrating')}</span><input id="ratingMax" inputmode="numeric" type="number" min="1" max="99" placeholder="—"></label>
+            ${[['position','position'],['nation','nation'],['league','league'],['club','club'],['event','event']].map(([id,key])=>`<div class="field ${id==='event'?'full':''}"><span>${tr(key)}</span><input id="${id}" type="hidden"><button class="native-select" type="button" data-native-picker="${id}"><span class="native-select-label" id="nativeLabel${id.charAt(0).toUpperCase()+id.slice(1)}">— EA</span><span>▾</span></button></div>`).join('')}
+            <div class="field full"><span>${tr('native_picker_title')}</span><div id="pickerStatus" class="native-status picker-status">${tr('native_picker_empty')}</div><div id="nativePickerResults" class="native-picker-results"></div></div>
+            <div class="event-targets"><button class="ghost small" type="button" id="addEvent">+ Event</button><div id="eventTargets" class="target-list"></div></div>
+            <label class="field"><span>${tr('minbid')}</span><input id="minBid" inputmode="numeric" type="number" min="0" placeholder="0"></label>
+            <label class="field"><span>${tr('maxbid')}</span><input id="maxBid" inputmode="numeric" type="number" min="0" placeholder="—"></label>
+            <label class="field"><span>${tr('minbin')}</span><input id="minBin" inputmode="numeric" type="number" min="0" placeholder="0"></label>
+            <label class="field"><span>${tr('maxbin')}</span><input id="maxBin" inputmode="numeric" type="number" min="150" value="1000"></label>
+           </div><p class="desc" style="margin-top:10px">${tr('native_picker_desc')}</p>
+           <div class="action-row"><button type="button" class="secondary" id="inspect">${tr('inspect')}</button><button type="button" class="secondary" id="sync">${tr('sync')}</button><button type="button" class="ghost" id="native">${tr('native')}</button><button type="button" class="ghost" id="exportMap">${tr('map')}</button></div>
+           <div id="nativeInfo" class="native-status">${tr('native_pending')}</div>
+          </div></details>
+        <details class="panel collapsible" open><summary class="panel-head"><h3><em>⌁</em> ${tr('engine')}</h3><span class="tiny-tag">ENGINE CONTROLS</span></summary>
+          <div class="panel-body"><div class="form-grid">
+             <label class="field full"><span>${tr('speedpreset')}</span><select id="speedPreset"><option value="1-3">1–3 sec</option><option value="2-5" selected>2–5 sec</option><option value="5-8">5–8 sec</option><option value="0.6-5">0.6–5 sec</option><option value="custom">Custom / يدوي</option></select></label>
+             <label class="field"><span>${tr('speedmin')}</span><input id="speedMin" type="number" min="0.6" max="60" step="0.1" value="2" disabled></label>
+             <label class="field"><span>${tr('speedmax')}</span><input id="speedMax" type="number" min="0.6" max="60" step="0.1" value="5" disabled></label>
+             <label class="field"><span>${tr('maxsearches')}</span><input id="maxSearches" type="number" min="1" max="300" value="30"></label>
+             <label class="field"><span>${tr('maxbuys')}</span><input id="maxBuys" type="number" min="1" max="30" value="1"></label>
+             <label class="field full"><span>${tr('budget')} (Coins)</span><input id="budget" type="number" min="150" value="10000"></label>
+           </div><p class="desc" style="margin-top:12px">${tr('speedhelp')}</p>
+           <label class="checkbox"><input type="checkbox" id="autoBuy"><span><b>${tr('autobuy')}</b><br>${tr('autobuy_note')}</span></label>
+           <div class="action-row"><button type="button" id="start" class="primary">${tr('start')}</button><button type="button" id="stop" class="danger" disabled>${tr('stop')}</button><button type="button" id="savePreset" class="secondary">${tr('preset_save')}</button></div>
+           <label class="field" style="margin-top:13px"><span>${tr('presets')}</span><select id="presets"><option value="">${tr('no_presets')}</option></select></label>
+           <div class="inline-warning">${tr('warning')}</div>
+          </div></details>
+      </div>
+      <div class="column right">
+        <details class="panel collapsible" open><summary class="panel-head"><h3><em>▦</em> ${tr('stats')}</h3><small id="sessionLabel">SESSION INACTIVE</small></summary>
+          <div class="hero-stats"><div class="timer-card"><div class="timer-label">${tr('runtime')}</div><div id="time" class="timer-value">00:00</div><div class="timer-sub">${tr('runtime')}</div></div>
+            <div class="speed-card"><div class="speed-top"><span>${tr('speed')}</span><b id="speedValue">—</b></div><div class="gauge"><div class="gauge-ring"></div><div class="gauge-arc" id="speedArc"></div><div class="gauge-needle" id="speedNeedle"></div><div class="gauge-center"></div><div class="gauge-min" id="gaugeMin">2.0</div><div class="gauge-max" id="gaugeMax">5.0</div></div><div class="speed-sub">${tr('speeddetail')}</div></div></div>
+          <div class="stats"><div class="metric"><span class="emoji">⌕</span><small>${tr('searches')}</small><strong id="searchCount" class="accent">0</strong></div><div class="metric"><span class="emoji">◇</span><small>${tr('matches')}</small><strong id="matchCount">0</strong></div><div class="metric"><span class="emoji">✓</span><small>${tr('bought')}</small><strong id="buyCount">0</strong></div><div class="metric"><span class="emoji">✕</span><small>${tr('misses')}</small><strong id="misses">0</strong></div></div>
+          <div class="second-stats"><div class="substat"><span>${tr('spent')}</span><b id="spent">0</b></div><div class="substat"><span>${tr('status')}</span><b id="status">READY</b></div><div class="substat"><span>${tr('mode')}</span><b id="sessionMode">STANDBY</b></div></div>
+          <div class="cycle-details"><span>${tr('next')}: <b id="nextDelay">—</b></span><span>${tr('actual')}: <b id="actualCycle">—</b></span></div>
+          <div class="status-line"><strong id="sessionStatus">● STANDBY</strong><small id="syncCount">EA FILTERS: NOT LINKED</small></div></details>
+        <details class="panel collapsible" open><summary class="panel-head"><h3><em>▥</em> ${tr('native_offers')}</h3><span class="tiny-tag">EA ORIGINAL</span></summary><div class="panel-body"><p class="desc">${tr('native_offers_desc')}</p><button class="secondary" id="captureOffers" type="button">${tr('refresh_offers')}</button><div id="nativeOffers" class="native-offers"><div class="muted">—</div></div></div></details>
+        <details class="panel collapsible" open><summary class="panel-head"><h3><em>◉</em> ${tr('lowest')}</h3><span class="tiny-tag">VISIBLE MARKET ONLY</span></summary><div class="panel-body"><div class="market-low"><b id="lowestPriceValue">—</b><small id="lowestPriceMeta">${tr('notobserved')}</small></div><p class="desc">${tr('lowestNote')}</p><button id="checkLowest" type="button" class="secondary">${tr('checkLowest')}</button></div></details>
+        <details class="panel collapsible" open><summary class="panel-head"><h3><em>☷</em> ${tr('logs')}</h3><span class="tiny-tag">LIVE LOG</span></summary><div class="log-actions"><button class="ghost small" id="export" type="button">${tr('csv')}</button><button class="ghost small" id="copyLog" type="button">${tr('copylog')}</button><button class="ghost small" id="exportLogText" type="button">${tr('txtlog')}</button></div><div id="logs" class="logs" aria-live="polite"></div><div class="notice">${tr('lognote')}</div></details>
+        <details class="panel collapsible" id="compatPanel"><summary class="panel-head"><h3><em>◈</em> ${tr('compat')}</h3><span id="auditSummary" class="tiny-tag">NOT TESTED</span></summary><div class="panel-body"><p class="desc">${tr('compatdesc')}</p><div class="action-row"><button id="runDiag" type="button" class="primary">${tr('rescan')}</button><button id="copyDiag" type="button" class="secondary">${tr('copydiag')}</button><button id="exportDiagText" type="button" class="ghost">${tr('txtdiag')}</button><button id="exportDiagJson" type="button" class="ghost">${tr('jsondiag')}</button></div><div id="compatResults" class="compat-list"><div class="muted">${tr('empty')}</div></div></div></details>
+        <details class="panel collapsible" id="technicalPanel"><summary class="panel-head"><h3><em>▤</em> ${tr('diagnosticlogs')}</h3><span class="tiny-tag">TECHNICAL</span></summary><div class="panel-body"><div class="action-row"><button id="copyTechnical" class="secondary" type="button">${tr('copysys')}</button><button id="exportTechnical" class="ghost" type="button">${tr('txtsys')}</button></div><pre id="technicalLogs" class="technical-logs">${tr('empty')}</pre></div></details>
+        <details class="panel collapsible"><summary class="panel-head"><h3><em>ⓘ</em> ${tr('datalink')}</h3><span class="tiny-tag">STATUS</span></summary><div class="panel-body"><p class="desc">${tr('datahelp')}</p><div id="dataHealth" class="native-status">${tr('empty')}</div></div></details>
+      </div>
+    </div><footer class="footer"><span>GPT SNIPE v3.4 · Unofficial · Independent</span><span>SEARCH • INSPECT • MONITOR</span></footer>
+  </main>`;}
+  function createPortal(){
+    if(portal?.isConnected)return;
+    portal=document.createElement('div');portal.id='gpts-v3-host';portal.setAttribute('aria-label','GPT SNIPE app');
+    portal.style.cssText='position:fixed;inset:0 0 0 90px;z-index:2147483000;display:none;min-width:0;';
+    shadow=portal.attachShadow({mode:'open'});
+    const link=document.createElement('link');link.rel='stylesheet';link.href=chrome.runtime.getURL('embedded.css');shadow.appendChild(link);
+    const app=document.createElement('div');app.innerHTML=uiHTML();while(app.firstChild)shadow.appendChild(app.firstChild);
+    document.documentElement.appendChild(portal);
+    bindUI();refresh();renderLogs();
+  }
+  const navStyle = document.createElement('style');
+  navStyle.textContent=`#gpts-v3-nav{border:0;min-height:48px;width:100%;padding:9px 10px;background:linear-gradient(125deg,#25392b,#172627);color:#d1f5ab;font-family:inherit;display:flex;gap:9px;align-items:center;justify-content:center;cursor:pointer;box-sizing:border-box;border-inline-start:3px solid #bdec7a;font-size:12px;font-weight:900;letter-spacing:.5px}#gpts-v3-nav:hover,#gpts-v3-nav.gpts-active{background:linear-gradient(120deg,#365a38,#1c352d);color:#fff}#gpts-v3-nav .gpts-icon{font-size:19px;line-height:1}#gpts-v3-nav.gpts-compact{flex-direction:column;gap:4px;padding:8px 3px;font-size:9px;min-height:63px}#gpts-v3-nav:focus-visible{outline:2px solid #c5f479;outline-offset:-2px}#gpts-v3-nav.gpts-compact .gpts-icon{font-size:21px}`;
+
+  function findNavItem(){
+    const target=/^(evolutions?|sbc|squad building challenges|transfers?|transfer market|التطورات|الانتقالات|تحديات بناء التشكيلة|انتقالات|ايفولوشن)$/i;
+    const candidates=[...document.querySelectorAll('button,a,li,[role="tab"],[role="menuitem"],span,div')];
+    for(const el of candidates){
+      if(el.closest('#gpts-v3-host')||el.id==='gpts-v3-nav')continue;
+      const name=(el.getAttribute('aria-label')||el.getAttribute('title')||el.textContent||'').trim().replace(/\s+/g,' ');
+      if(!target.test(name)||!visible(el))continue;
+      const r=el.getBoundingClientRect();
+      if(r.left>370||r.width>310||r.height<8||r.height>150)continue;
+      let item=el.closest('.ut-tab-bar-item,.ut-navigation-item,.ut-nav-item,[role="tab"],[role="menuitem"],li,button,a');
+      if(!item){item=el.parentElement||el;}
+      const p=item.parentElement;if(!p||p===document.body)continue;
+      return {item,parent:p,rect:r};
+    }
+    return null;
+  }
+  function calcLeft(){
+    if(!nav?.isConnected)return 90;
+    let el=nav.parentElement,best=null;
+    for(let i=0;el&&i<7;i++,el=el.parentElement){
+      const r=el.getBoundingClientRect();
+      if(r.left>=-8&&r.left<65&&r.width>=50&&r.width<=325&&r.height>=Math.min(360,window.innerHeight*.55))best=r;
+    }
+    return Math.max(64,Math.min(330,Math.round(best?.right||nav.getBoundingClientRect().right||90)));
+  }
+  function positionPortal(){if(!portal)return;portal.style.left=(window.innerWidth<650?'0px':calcLeft()+'px');}
+  function makeNav(){
+    if(nav?.isConnected){positionPortal();return;}
+    const found=findNavItem();if(!found)return;
+    const btn=document.createElement('button');btn.type='button';btn.id='gpts-v3-nav';btn.setAttribute('aria-label','GPT SNIPE');btn.innerHTML='<span class="gpts-icon" aria-hidden="true">◎</span><span>GPT SNIPE</span>';
+    btn.addEventListener('click',event=>{event.preventDefault();event.stopPropagation();openPanel();});
+    const rect=found.item.getBoundingClientRect();if(rect.width<115)btn.classList.add('gpts-compact');
+    found.parent.insertBefore(btn,found.item);nav=btn;
+    if(state.open)btn.classList.add('gpts-active');positionPortal();
+    addLog('تم إدراج GPT SNIPE في القائمة اليسرى','success');
+  }
+  function openPanel(){createPortal();state.open=true;portal.style.display='block';nav?.classList.add('gpts-active');positionPortal();refresh();}
+  function closePanel(){if(!portal)return;state.open=false;portal.style.display='none';nav?.classList.remove('gpts-active');}
+  function scheduleNav(){if(mountTimer)return;mountTimer=setTimeout(()=>{mountTimer=null;try{makeNav();}catch(e){console.warn('[GPT SNIPE] sidebar not ready:',e?.message)}},250);}
+  function observeNav(){
+    observer=new MutationObserver(()=>{if(!nav?.isConnected)scheduleNav();});
+    observer.observe(document.documentElement,{childList:true,subtree:true});
+    window.addEventListener('resize',positionPortal);
+    document.addEventListener('click',event=>{
+      if(!state.open||state.nativeConnectInProgress||!nav||event.composedPath().includes(nav))return;
+      const t=event.target;
+      if(t instanceof Element && (t.closest('.ut-tab-bar-item,.ut-navigation-item,.ut-nav-item,[role="tab"],[role="menuitem"]')||t.closest('a,li,button'))){
+        const r=t.getBoundingClientRect();if(r.left<calcLeft()+8)closePanel();
+      }
+    },true);
+    scheduleNav();
+  }
+
+  function renderLogs(){
+    const e=$('logs');if(!e)return;
+    e.replaceChildren();
+    for(const entry of state.logs.slice(0,45)){
+      const d=document.createElement('div');d.className='log-row '+(entry.level||'info');
+      const time=document.createElement('time');time.textContent=new Date(entry.at).toLocaleTimeString('en-GB',{hour12:false});
+      const dot=document.createElement('span');dot.className='dot';
+      const p=document.createElement('p');p.textContent=entry.message;
+      d.append(dot,p,time);e.appendChild(d);
+    }
+    if(!state.logs.length){const e2=document.createElement('div');e2.className='muted';e2.style.padding='16px 0';e2.textContent='لا توجد عمليات مسجلة بعد.';e.appendChild(e2);}
+  }
+  const SPEED_RANGES={'1-3':[1,3],'2-5':[2,5],'5-8':[5,8],'0.6-5':[0.6,5]};
+  function updateSpeedControls(){
+    const preset=input('speedPreset')||'2-5',fixed=SPEED_RANGES[preset];
+    const min=$('speedMin'),max=$('speedMax');
+    if(fixed){min.disabled=true;max.disabled=true;min.value=fixed[0];max.value=fixed[1];}
+    else{min.disabled=false;max.disabled=false;}
+    const lo=Number(min.value),hi=Number(max.value);
+    state.speedMinMs=Math.round(lo*1000);state.speedMaxMs=Math.round(hi*1000);
+    if($('gaugeMin'))$('gaugeMin').textContent=lo.toFixed(1);
+    if($('gaugeMax'))$('gaugeMax').textContent=hi.toFixed(1);
+    paintSpeedGauge(state.running?state.nextIntervalMs:0);
+  }
+  function rangeConfig(){
+    const lo=numeric('speedMin'),hi=numeric('speedMax');
+    if(!Number.isFinite(lo)||!Number.isFinite(hi)||lo<0.6||hi>60||hi<lo)throw Error('اختار مدى سرعة صحيحًا بين 0.6 و60 ثانية، وأقصى زمن لا يقل عن الأقل.');
+    return {minMs:Math.round(lo*1000),maxMs:Math.round(hi*1000)};
+  }
+  function paintSpeedGauge(ms){
+    const seconds=ms/1000;
+    const lo=Math.max(0.1,state.speedMinMs/1000),hi=Math.max(lo,state.speedMaxMs/1000);
+    const ratio=ms>0 ? Math.max(0,Math.min(1,(seconds-lo)/(hi-lo||1))) : 0;
+    const deg=-115+ratio*230;
+    if($('speedValue'))$('speedValue').textContent=ms>0?seconds.toFixed(2)+'s':'—';
+    if($('speedNeedle'))$('speedNeedle').style.transform=`translateX(-50%) rotate(${deg}deg)`;
+    if($('speedArc'))$('speedArc').style.background=`conic-gradient(from 240deg, #9be95f ${Math.round(ratio*66)}%, transparent 0)`;
+    if($('nextDelay'))$('nextDelay').textContent=ms>0?seconds.toFixed(2)+'s':'—';
+    if($('actualCycle'))$('actualCycle').textContent=state.lastCycleMs>0?(state.lastCycleMs/1000).toFixed(2)+'s':'—';
+  }
+  function refresh(){if(!shadow)return;
+    const sec=state.started?Math.floor(((state.ended||Date.now())-state.started)/1000):0;
+    const show={searchCount:fmt(state.searches),matchCount:fmt(state.matches),buyCount:fmt(state.bought),spent:fmt(state.spent),misses:fmt(state.misses),time:`${String(Math.floor(sec/60)).padStart(2,'0')}:${String(sec%60).padStart(2,'0')}`,status:state.running?'LIVE':state.status==='خطأ'?'ERROR':'READY'};
+    for(const [k,v] of Object.entries(show))if($(k))$(k).textContent=v;
+    if($('sessionMode'))$('sessionMode').textContent=state.running?($('autoBuy')?.checked?'AUTO BUY':'ALERT ONLY'):'STANDBY';
+    paintSpeedGauge(state.running?state.nextIntervalMs:0);
+    $('start').disabled=state.running||state.starting;$('stop').disabled=!(state.running||state.starting);
+    $('runBadge').innerHTML=state.running?'<i></i> LIVE SCANNING':'<i></i> STANDBY';$('runBadge').className='pill'+(state.running?' green':'');
+    $('sessionLabel').textContent=state.running?'ACTIVE SESSION':'SESSION INACTIVE';$('sessionStatus').textContent=state.running?'● SCANNING':`● ${state.status}`;
+    const connected=state.pageMode?Boolean(state.pageSnapshot&&state.pageConnection?.ok):Boolean(findNativeSearchButton());
+    $('connection').textContent=state.pageMode?(connected?'● EA PAGE FUNCTIONS CONNECTED':'● EA FUNCTIONS · RECONNECT REQUIRED'):(connected?'● EA MARKET DETECTED (DOM)':'● EA WEB APP · VIEW UNCONFIRMED');
+    $('connection').className='pill'+(connected?' green':' warn');
+    $('provider').textContent='المصدر: '+state.lastProvider;
+  }
+
+  function safeImg(x){try{const u=new URL(x);return u.protocol==='https:'&&['game-assets.fut.gg','www.fut.gg'].includes(u.hostname)?u.href:'';}catch{return '';}}
+  function renderTargets(){
+    const host=$('selectedTargets');if(!host)return;host.replaceChildren();
+    for(const target of state.selectedTargets){
+      const chip=document.createElement('span');chip.className='target-chip';
+      const name=document.createElement('span');name.textContent=target.name+' · '+(target.rating||'—')+' · '+(target.itemId||'—');
+      const remove=document.createElement('button');remove.type='button';remove.className='target-remove';remove.textContent='×';remove.title=tr('selclear');
+      remove.addEventListener('click',()=>{state.selectedTargets=state.selectedTargets.filter(x=>x.key!==target.key);renderTargets();save();});
+      chip.append(name,remove);host.appendChild(chip);
+    }
+    if(!state.selectedTargets.length){const d=document.createElement('span');d.className='muted';d.textContent=tr('empty');host.appendChild(d);}
+  }
+  function renderEvents(){
+    const host=$('eventTargets');if(!host)return;host.replaceChildren();
+    for(const eventName of state.eventTargets){
+      const chip=document.createElement('span');chip.className='target-chip';
+      const title=document.createElement('span');title.textContent=eventName;
+      const b=document.createElement('button');b.className='target-remove';b.type='button';b.textContent='×';
+      b.addEventListener('click',()=>{state.eventTargets=state.eventTargets.filter(x=>x!==eventName);renderEvents();save();});
+      chip.append(title,b);host.appendChild(chip);
+    }
+  }
+  function addEvent(){
+    const v=input('event');if(!v)return;
+    const list=v.split(/[,،]/).map(x=>x.trim()).filter(Boolean).slice(0,15);
+    for(const x of list)if(!state.eventTargets.includes(x))state.eventTargets.push(x.slice(0,48));
+    state.eventTargets=state.eventTargets.slice(0,15);$('event').value='';renderEvents();save();
+    addLog('الأحداث محفوظة في القائمة للتحليل فقط؛ لا يتم تطبيقها على EA بدون ربط أصلي موثوق.','info');
+  }
+  function updateDatalists(){ /* Original EA option picker now owns these categories. */ }
+  function selectPlayer(p){
+    state.selected=p;state.nativePlayerConfirmed=false;
+    const key=String(p.key||p.itemId||p.playerId||p.name);
+    if(!state.selectedTargets.some(x=>x.key===key))state.selectedTargets.push({...p,key});
+    if(state.selectedTargets.length>12)state.selectedTargets.shift();
+    $('player').value=p.name||'';
+    $('itemId').value=p.itemId?String(p.itemId):'';
+    if(state.pageMode){renderTargets();renderPlayers(state.players);refresh();save();void confirmNativePlayer();return;}
+    // Catalogue metadata must never be falsely presented as a confirmed native EA filter.
+    // Keep native selections already explicitly made; changing player does not silently clear EA state.
+    updateNativeLabels();
+    const field=findField(bridge[0][1]);
+    if(state.selectedTargets.length===1&&field){
+      if(setNativeValue(field,p.name))addLog('نُقل اسم اللاعب إلى EA؛ اضغط EA player autocomplete لتأكيد البطاقة من الاقتراح الأصلي.','warning');
+    }else if(!field){addLog('تم اختيار البطاقة لكن فلتر اسم EA غير ظاهر. افتح شاشة سوق EA أولًا.','warning');}
+    renderTargets();renderPlayers(state.players);refresh();save();
+    addLog(`تم اختيار ${p.name} · Item ID: ${p.itemId||'غير متوفر'}`,'success');
+    if(Native?.hasForm() && state.selectedTargets.length===1){
+      // Native lookup only if the original EA form is already open; never claim a catalogue match is a native selection.
+      void confirmNativePlayer();
+    }
+  }
+  async function confirmNativePlayer(){
+    state.nativePlayerConfirmed=false;
+    const selected=state.selected;
+    if(!selected){addLog('اختر لاعبًا واحدًا أولًا.','warning');return;}
+    if(state.pageMode){
+      const id=Number(selected.playerId||selected.itemId);
+      try{
+        const report=await Page.request('selectPlayer',{id,query:selected.name});
+        if(state.selected!==selected)return;
+        mergePageSnapshot(report.snapshot);state.nativePlayerConfirmed=true;
+        $('playerSyncState').textContent='✓ EA player ID '+id+' (base player; rarity chosen separately)';
+        addLog('EA confirmed native player ID: '+id,'success');
+      }catch(e){addLog(e.message,'error');$('playerSyncState').textContent='EA: '+e.message;}
+      return;
+    }
+    if(!Native?.hasForm()&&!await connectEA())return;
+    const field=findField(bridge[0][1])||document.querySelector('.ut-player-search-control--input-container input,input[placeholder*="Player Name" i]');
+    if(!field){addLog('لم يظهر إدخال اسم اللاعب الأصلي في EA.','error');return;}
+    setNativeValue(field,selected.name);field.focus();await nap(430);
+    const options=[...document.querySelectorAll('[role="option"],.ut-player-search-results li,.ut-list-container .ut-list-row,.ut-search-result-item')]
+      .filter(visible).filter(el=>normalize(el.textContent).includes(normalize(selected.name)));
+    if(options.length===1){options[0].click();state.nativePlayerConfirmed=true;addLog('تم اختيار اللاعب من اقتراح EA الأصلي: '+selected.name,'success');}
+    else addLog('لم يظهر اقتراح واحد مؤكد من EA للاعب '+selected.name+'؛ افتح فلتر اللاعب الأصلي واختر البطاقة بنفسك.','warning');
+    if($('playerSyncState'))$('playerSyncState').textContent=state.nativePlayerConfirmed?'✓ Native EA selected':'EA selection not verified';
+  }
+  function renderPlayers(list=[],notice=''){
+    state.players=list;
+    const host=$('playerResults');if(!host)return;host.replaceChildren();$('cardCount').textContent=`${list.length} ${tr('cardcount')}`;
+    if(notice){const d=document.createElement('div');d.className='muted';d.textContent=notice;host.appendChild(d);}
+    for(const p of list.slice(0,24)){
+      const b=document.createElement('button');b.type='button';b.className='result';
+      if(state.selectedTargets.some(x=>x.key===String(p.key||p.itemId||p.playerId||p.name)))b.classList.add('chosen');
+      const avatar=document.createElement('span');avatar.className='avatar';avatar.textContent=String(p.name||'?').charAt(0).toUpperCase();
+      const url=safeImg(p.imageUrl);if(url){avatar.textContent='';const img=document.createElement('img');img.src=url;img.alt=p.name;img.loading='lazy';img.onerror=()=>{avatar.textContent=String(p.name||'?')[0].toUpperCase();img.remove();};avatar.appendChild(img);}
+      const info=document.createElement('span');info.className='rdata';const name=document.createElement('b');name.textContent=p.name||'Unknown';const desc=document.createElement('small');desc.textContent=`${p.position||'—'} · ${p.rarity||'—'} · ${p.club||'—'} · Item ID ${p.itemId||'—'} · Player ID ${p.playerId||'—'}`;
+      info.append(name,desc);const rating=document.createElement('span');rating.className='rating';rating.textContent=p.rating||'—';
+      b.append(avatar,info,rating);b.addEventListener('click',()=>selectPlayer(p));host.appendChild(b);
+    }
+  }
+  async function searchPlayers(){
+    const term=input('player');const token=++state.pendingQuery;
+    if(term.length<2){renderPlayers([], 'اكتب حرفين أو أكثر.');return;}
+    if(state.pageMode){
+      try{
+        const response=await Page.request('players',{query:term});if(token!==state.pendingQuery)return;
+        renderPlayers(response.items,response.items.length?'EA native player database — select rarity/event separately.':'No matching native EA player.');
+        state.lastProvider='EA native · '+response.items.length;
+        $('dataHealth').textContent='EA native player search (base players, not all card versions)';refresh();
+      }catch(e){if(token===state.pendingQuery){renderPlayers([],e.message);addLog(e.message,'error');}}
+      return;
+    }
+    const local=state.cache.filter(p=>normalize(p.name).includes(normalize(term))||String(p.itemId||'')===term||String(p.playerId||'')===term).slice(0,12);
+    renderPlayers(local, local.length?'نتائج محفوظة من بحث سابق — جاري تحديث الكتالوج…':'جاري البحث في كتالوج FUT.GG…');
+    state.lastProvider='FUT.GG · جاري الاتصال';refresh();
+    try{
+      const response=await chrome.runtime.sendMessage({type:'GPTS_SEARCH_FUTGG',payload:{query:term,page:1}});
+      if(token!==state.pendingQuery)return;
+      if(!response?.ok)throw Error(response?.error||'تعذر الاتصال بمصدر اللاعبين');
+      const list=(response.result.items||[]).filter(p=>p&&p.name);
+      state.lastProvider=`FUT.GG · ${list.length} نتيجة`;
+      if(list.length){state.cache=[...list,...state.cache.filter(p=>!list.some(n=>n.key===p.key))].slice(0,180);renderPlayers(list);updateDatalists();}
+      else renderPlayers(local, 'لا توجد نتائج من المصدر الآن.');
+      $('dataHealth').textContent='كتالوج خارجي · '+list.length+' نتيجة · آخر اتصال '+new Date().toLocaleTimeString('ar-EG');
+      addLog(`بحث عن ${term} · ${list.length} بطاقة في كتالوج FUT.GG`,'info');
+    }catch(e){if(token!==state.pendingQuery)return;state.lastProvider='تعذر الاتصال';renderPlayers(local,`فشل مصدر اللاعبين: ${e.message}. جرّب لاحقًا أو بيانات سبق حفظها.`);$('dataHealth').textContent='فشل اتصال FUT.GG: '+e.message;addLog(`فشل البحث: ${e.message}`,'error');}
+    refresh();save();
+  }
+  function markConnectProgress(text){
+    const el=$('nativeConnectSteps');if(!el)return;
+    const row=document.createElement('div');row.textContent=String(text).slice(0,180);
+    row.className='connect-step';el.prepend(row);while(el.childElementCount>9)el.lastElementChild.remove();
+  }
+  function mergePageSnapshot(snapshot){
+    if(!snapshot)return;
+    state.pageSnapshot=snapshot;
+    for(const kind of ['quality','position','nation','league','club','event']){
+      const selection=snapshot.selections?.[kind];
+      if($(kind))$(kind).value=selection?.label||'';
+      state.nativeChoices[kind]=selection?.label||'';
+    }
+    state.nativePlayerConfirmed=Boolean(snapshot.player?.id && snapshot.maskedDefId===snapshot.player.id &&
+      (!state.selected||snapshot.player.id===Number(state.selected.playerId||state.selected.itemId)));
+    updateNativeLabels();
+  }
+  async function connectEA(){
+    if(!Native){addLog('محرك الاتصال بواجهة EA غير محمّل.','error');return false;}
+    if(state.nativeConnectInProgress)return false;
+    state.nativeConnectInProgress=true;const btn=$('connectEA');if(btn)btn.disabled=true;
+    const panel=$('nativeConnectStatus');if(panel){panel.textContent='Connecting to original EA market…';panel.className='native-status';}
+    try{
+      let report;
+      if(Page){
+        report=await Page.request('connect');state.pageMode=true;state.pageConnection=report;
+        mergePageSnapshot(report.snapshot);for(const step of report.trace)markConnectProgress(step);
+        $('dataHealth').textContent='EA PAGE FUNCTIONS · native controllers & local player engine';
+      }else{state.pageMode=false;report=await Native.connectMarket(markConnectProgress);}
+
+      if(panel){panel.textContent=report.ok?(state.pageMode?'✓ EA PAGE FUNCTIONS — native search controller connected':'✓ EA Transfer Market Search connected (DOM)'):'✕ EA connection stopped at '+report.stage+' — '+report.trace.at(-1);panel.className='native-status '+(report.ok?'good':'bad');}
+      addLog(report.ok?'اتصلنا بواجهة بحث EA الأصلية':'تعذر الوصول لسوق EA عند المرحلة: '+report.stage+' — '+report.trace.at(-1),report.ok?'success':'warning');
+      inspectNative();return report.ok;
+    }catch(e){if(Page){state.pageConnection={ok:false,mode:'page-functions',stage:e.code||'EA_ERROR',trace:[e.message],at:new Date().toISOString()};state.pageSnapshot=null;}addLog('تعذر الاتصال بواجهة EA: '+e.message,'error');if(panel)panel.textContent=e.message;return false;}
+    finally{state.nativeConnectInProgress=false;if(btn)btn.disabled=false;refresh();}
+  }
+  function imageFromNative(src){try{const url=new URL(src,location.href);if(url.protocol==='https:')return url.href;}catch{}return '';}
+  async function showNativePicker(kind){
+    const target=$('nativePickerResults'),status=$('pickerStatus');if(!target||!status)return;
+    target.replaceChildren();status.textContent='EA '+kind+' · Loading original options…';
+    if(!state.pageMode&&!Native?.hasForm()){
+      const connected=await connectEA();if(!connected){status.textContent='لا يمكن عرض فلاتر '+kind+' قبل الاتصال بشاشة السوق الأصلية.';return;}
+    }
+    const found=state.pageMode?await Page.request('options',{kind}):await Native.openPicker(kind);
+    state.pickerKind=kind;state.pickerOptions=found.options||[];
+    status.textContent=`EA ${kind}: ${found.ok?found.options.length+' original visible option(s)':found.reason}`;
+    if(!found.ok){addLog('لم تظهر خيارات '+kind+' الأصلية من EA؛ لا توجد قائمة مستوردة بديلة.','warning');return;}
+    const bar=document.createElement('input');bar.type='search';bar.className='native-option-filter';bar.placeholder='Filter displayed EA choices / تصفية المعروض';target.appendChild(bar);
+    const grid=document.createElement('div');grid.className='native-option-grid';target.appendChild(grid);
+    const render=()=>{grid.replaceChildren();const term=normalize(bar.value);let count=0;
+      for(const opt of state.pickerOptions){if(term&&!normalize(opt.label).includes(term))continue;if(count++>=160)break;
+        const button=document.createElement('button');button.type='button';button.className='native-option';button.title=opt.label;
+        const imgUrl=imageFromNative(opt.image);if(imgUrl){const img=document.createElement('img');img.src=imgUrl;img.alt='';img.referrerPolicy='no-referrer';img.loading='lazy';button.append(img);}
+        const text=document.createElement('span');text.textContent=opt.label;button.append(text);
+        button.addEventListener('click',async()=>{
+          button.disabled=true;
+          let result;
+          try{result=state.pageMode?await Page.request('choose',{token:found.token,index:opt.index}):Native.chooseOption(opt.index);}
+          catch(e){status.textContent=e.message;button.disabled=false;return;}
+          if(result.snapshot)mergePageSnapshot(result.snapshot);
+          if(!result.ok){status.textContent='EA changed the options: reopen the picker.';return;}
+          const inputEl=$(kind);if(inputEl)inputEl.value=result.label;
+          state.nativeChoices[kind]=result.label;updateNativeLabels();addLog('اختيار أصلي من EA: '+kind+' — '+result.label,'success');
+          status.textContent='✓ EA '+kind+': '+result.label;grid.replaceChildren();bar.remove();save();
+        });grid.append(button);
+      }
+    };bar.addEventListener('input',render);render();
+    addLog('تمت قراءة '+found.options.length+' خيارات '+kind+' ظاهرة من عناصر EA.','info');
+  }
+  function nativeOfferImage(row){
+    const img=row.querySelector('img');if(img?.currentSrc||img?.src)return imageFromNative(img.currentSrc||img.src);
+    for(const el of [row,...row.querySelectorAll('.ut-item-image,.player-image,.image')].slice(0,8)){
+      const bg=getComputedStyle(el).backgroundImage||'';const m=bg.match(/url\(["']?([^"')]+)["']?\)/);if(m)return imageFromNative(m[1]);
+    }return '';
+  }
+  function displayNativeOffers(){
+    const target=$('nativeOffers');if(!target)return;
+    if(state.pageMode){
+      target.replaceChildren();
+      if(!state.nativeItems.length){target.textContent='EA native: no listings in the last confirmed response.';return;}
+      for(const item of state.nativeItems){
+        const node=document.createElement('div');node.className='native-offer';
+        node.textContent=[item.name||'EA listing',item.rating||'—','Item ID '+(item.itemId||'—'),'Rarity ID '+(item.rarityId??'—'),fmt(item.price)+' Coins'].join(' · ');
+        target.append(node);
+      }
+      return;
+    }
+    target.replaceChildren();const rows=resultRows().slice(0,24);
+    if(!rows.length){const empty=document.createElement('div');empty.className='muted';empty.textContent='No visible EA market listings. Open native market search results first.';target.append(empty);return;}
+    for(const row of rows){const card=rowCard(row);const view=document.createElement('div');view.className='native-offer';
+      const imageUrl=nativeOfferImage(row);if(imageUrl){const im=document.createElement('img');im.src=imageUrl;im.alt='';im.referrerPolicy='no-referrer';im.loading='lazy';view.append(im);}
+      const info=document.createElement('div');info.className='native-offer-info';
+      const a=document.createElement('b');a.textContent=card.name||'EA Item (name unknown)';
+      const b=document.createElement('small');b.textContent=[card.rating&&`OVR ${card.rating}`,card.rarity,card.itemId&&`ID ${card.itemId}`].filter(Boolean).join(' · ')||'Details unavailable';
+      const c=document.createElement('strong');c.textContent=card.price?fmt(card.price)+' Coins':'Price not readable';
+      info.append(a,b,c);view.append(info);target.append(view);
+    }
+  }
+  function fieldList(){
+    const inputs=[...document.querySelectorAll('input, select')].filter(e=>visible(e)&&!e.closest('#gpts-v3-host')&&!(e.type==='hidden'||e.type==='password'));
+    return inputs.map(e=>({el:e,label:[e.getAttribute('aria-label'),e.getAttribute('placeholder'),e.id,e.name,e.closest('label')?.innerText,e.closest('.ut-form-field,.filter-row,.field-container')?.textContent].filter(Boolean).join(' ').toLowerCase().slice(0,240)}));
+  }
+  function findField(patterns){
+    const found=fieldList().filter(({label})=>patterns.some(p=>p.test(label)));
+    return found.length===1?found[0].el:null;
+  }
+  function findNativeSearchButton(){
+    const native=Native?.marketSearchButton();if(native)return native;
+    const zones=[...document.querySelectorAll('.ut-market-search-filters-view, .ut-market-search-view, .ut-pinned-list-container, [class*="market-search"]')].filter(visible);
+    const buttons=[...document.querySelectorAll('button')].filter(b=>visible(b)&&!b.disabled&&b.id!=='gpts-v3-nav'&&!b.closest('#gpts-v3-host'));
+    return buttons.find(b=>zones.some(z=>z.contains(b))&&/^(search|بحث|rechercher|suchen|buscar)$/i.test(b.textContent.trim()))||
+     buttons.find(b=>zones.some(z=>z.contains(b))&&/btn-standard/.test(b.className)&&/primary|call-to-action/.test(b.className))||null;
+  }
+  function findBackButton(){return [...document.querySelectorAll('button.ut-navigation-button-control,button[aria-label="Back"],button[data-testid*="back"]')].find(x=>visible(x)&&!x.closest('#gpts-v3-host'))||null;}
+  function setNativeValue(el,value){if(el.tagName==='SELECT'){const o=[...el.options].find(x=>normalize(x.value)===normalize(value)||normalize(x.textContent)===normalize(value));if(!o)return false;el.value=o.value;}else{const setter=Object.getOwnPropertyDescriptor(HTMLInputElement.prototype,'value')?.set;if(setter)setter.call(el,String(value));else el.value=String(value);}el.dispatchEvent(new Event('input',{bubbles:true}));el.dispatchEvent(new Event('change',{bubbles:true}));return true;}
+  const bridge=[
+    ['player',[/player.*name|name.*player|search.*player|اسم.*لاعب/i]],
+    ['minBid',[/min.*bid|bid.*min|minimum.*bid/i]],['maxBid',[/max.*bid|bid.*max|maximum.*bid/i]],
+    ['minBin',[/min.*buy.?now|buy.?now.*min|minimum.*bin/i]],['maxBin',[/max.*buy.?now|buy.?now.*max|maximum.*bin/i]],
+    ['quality',[/quality|rarity|نوع.*بطاق/i]],['position',[/position|مركز/i]],
+    ['nation',[/nation|country|دولة|جنسية/i]],['league',[/league|دوري/i]],['club',[/club|نادي/i]]
+  ];
+  function inspectNative(){
+    if(state.pageMode){
+      const snap=state.pageSnapshot,linked=Object.values(snap?.selections||{}).filter(Boolean).length;
+      const msg='EA PAGE FUNCTIONS · filters '+linked+'/6 · native search '+(snap?.hasForm?'ready':'not current');
+      state.lastNative=msg;$('nativeInfo').textContent=msg;$('nativeInfo').className='native-status '+(snap?.hasForm?'good':'bad');$('syncCount').textContent='EA FUNCTIONS: '+linked+'/6';
+      return{linked,fields:[],hasSearch:Boolean(snap?.hasForm)};
+    }
+    const fields=fieldList();let linked=0;
+    for(const [id,patterns] of bridge)if(findField(patterns))linked++;
+    const hasSearch=!!findNativeSearchButton();
+    const bridgeStatus=Native?.nativeStatus();const msg=`EA: ${fields.length} حقل ظاهر · ${linked}/${bridge.length} قابل للمطابقة · زر Search: ${hasSearch?'موجود':'غير مكتشف'}. Native: ${bridgeStatus?.hasForm?'Form detected':'Form unavailable'}.`;
+    state.lastNative=msg;$('nativeInfo').textContent=msg;$('nativeInfo').className='native-status '+(hasSearch?'good':'bad');$('syncCount').textContent=`EA FILTERS: ${linked}/${bridge.length}`;
+    addLog(msg,hasSearch?'success':'warning');return{linked,fields,hasSearch};
+  }
+  function compatibilityAudit(){
+    const hasMarket=[...document.querySelectorAll('.ut-market-search-filters-view,.ut-market-search-view,[class*="market-search"]')].some(visible);
+    const hasSearch=state.pageMode?Boolean(state.pageSnapshot?.capabilities?.search):Boolean(findNativeSearchButton());
+    const rows=resultRows();
+    const checks=[];
+    const add=(name,condition,detail,viewDependent=true)=>checks.push({name,status:condition?'pass':viewDependent&&!hasMarket?'unknown':'fail',detail});
+    add('EA MAIN-world function bridge',state.pageMode,state.pageMode?'Native controller connection confirmed':'Connect to EA to test page functions',false);
+    if(!state.pageMode)checks[checks.length-1].status='unknown';
+    if(state.pageMode)for(const [key,ok] of Object.entries(state.pageSnapshot?.capabilities||{}))add('EA function: '+key,ok,'From the current EA controller snapshot',false);
+    add('Native market search screen',hasMarket,hasMarket?'DOM market container recognized':'Open Transfers → Transfer Market → Search',false);
+    if(!hasMarket)checks[checks.length-1].status='unknown';
+    add(state.pageMode?'Native search action':'Native Search button',hasSearch,state.pageMode?'EA eSearchSelected handler':(hasSearch?'Visible Search control found':'EA Search button missing'));
+    for(const [id,patterns] of bridge){
+      const field=findField(patterns);
+      const snapshot=state.pageSnapshot;
+      const linked=state.pageMode?(id==='player'?Boolean(snapshot?.player):['minBid','maxBid','minBin','maxBin'].includes(id)?Boolean(snapshot?.prices):Boolean(snapshot?.selections?.[id])):Boolean(field);
+      add('EA Filter: '+id,linked,state.pageMode?'EA controller snapshot (use refresh to read current filters)':field?`Visible ${field.tagName} mapped`:'Selector/label unavailable in current view');
+      if(state.pageMode&&id==='player'&&!snapshot?.player)checks[checks.length-1].status='unknown';
+    }
+    add('Result list container',[...document.querySelectorAll('.SearchResults,.ut-market-search-results-view')].some(visible),'Only required when result view is open');
+    if(!hasMarket)checks[checks.length-1].status='unknown';
+    add('Buy Now control',Boolean(buyButton()),'Only present when a purchasable listing is selected');
+    checks[checks.length-1].status=buyButton()?'pass':'unknown';
+    const first=rows[0]||null;
+    const card=state.pageMode?state.nativeItems[0]:(first?rowCard(first):null);
+    for(const [label,ok] of [
+      ['Result: player name',Boolean(card?.name)],
+      ['Result: rating',Number.isInteger(card?.rating)&&card.rating>0],
+      ['Result: item ID',Boolean(card?.itemId)],
+      ['Result: rarity',state.pageMode?Number.isInteger(card?.rarityId):Boolean(card?.rarity)],
+      ['Result: Buy Now price',Number.isInteger(card?.price)&&card.price>0]
+    ]){
+      add(label,ok,first?(ok?'Read from a visible result':'Visible result lacks readable data'):'Open a result list to test',false);
+      if(!card)checks[checks.length-1].status='unknown';
+    }
+    add('Confirmation dialog',Boolean(dialog()),'Only required during a native purchase dialog',false);
+    checks[checks.length-1].status=dialog()?'pass':'unknown';
+    add('CAPTCHA/security challenge',!blocked(),'Session must stop if protection appears',false);
+    const counters={pass:checks.filter(x=>x.status==='pass').length,fail:checks.filter(x=>x.status==='fail').length,unknown:checks.filter(x=>x.status==='unknown').length};
+    const report={kind:'GPT_SNIPE_COMPATIBILITY',version:'3.4.0',at:new Date().toISOString(),page:location.pathname,marketViewDetected:hasMarket,searchButtonDetected:hasSearch,counts:counters,checks,nativeFunctions:state.pageMode?state.pageSnapshot:null};
+    state.lastAudit=report;
+    state.auditLog.unshift({at:report.at,summary:`Pass ${counters.pass}, Fail ${counters.fail}, Need view ${counters.unknown}`,marketView:hasMarket});
+    state.auditLog=state.auditLog.slice(0,60);
+    renderDiagnostics();
+    addLog(`فحص EA: ✅${counters.pass} / ❌${counters.fail} / ◌${counters.unknown} (غير ظاهر)`,counters.fail?'warning':'info');
+    return report;
+  }
+  function auditAsText(){
+    const a=state.lastAudit||compatibilityAudit();
+    return [`GPT SNIPE DIAGNOSTICS v${a.version}`,`Time: ${a.at}`,`Page: ${a.page}`,`EA market view: ${a.marketViewDetected}`,`Search button: ${a.searchButtonDetected}`,`PASS: ${a.counts.pass} | FAIL: ${a.counts.fail} | NOT SHOWN: ${a.counts.unknown}`,...a.checks.map(c=>`[${c.status.toUpperCase()}] ${c.name} — ${c.detail}`)].join('\n');
+  }
+  function technicalAsText(){
+    const lines=state.auditLog.map(x=>`[${x.at}] ${x.summary} | marketView=${x.marketView}`);
+    return ['GPT SNIPE TECHNICAL LOG',...lines,'','Recent application events:',...state.logs.slice(0,40).map(x=>`[${x.at}] ${x.level} ${x.message}`)].join('\n');
+  }
+  function renderDiagnostics(){
+    const a=state.lastAudit;if(!a)return;
+    const summary=$('auditSummary');if(summary)summary.textContent=`✓ ${a.counts.pass}   ✕ ${a.counts.fail}   ? ${a.counts.unknown}`;
+    const results=$('compatResults');if(results){results.replaceChildren();for(const row of a.checks){
+      const div=document.createElement('div');div.className='audit-row '+row.status;
+      const mark=document.createElement('b');mark.textContent=row.status==='pass'?'✓':row.status==='fail'?'×':'?';
+      const body=document.createElement('span');body.textContent=row.name;
+      const info=document.createElement('small');info.textContent=row.detail;
+      div.append(mark,body,info);results.appendChild(div);
+    }}
+    const log=$('technicalLogs');if(log)log.textContent=technicalAsText();
+  }
+  function saveTextFile(filename,text,contentType='text/plain;charset=utf-8'){
+    const blob=new Blob([contentType.startsWith('application/json')?text:'\ufeff'+text],{type:contentType});const url=URL.createObjectURL(blob);
+    const link=document.createElement('a');link.href=url;link.download=filename;link.click();setTimeout(()=>URL.revokeObjectURL(url),2000);
+  }
+  async function copyText(text){
+    try{await navigator.clipboard.writeText(text);addLog('تم النسخ إلى الحافظة.','success');}
+    catch(e){addLog('تعذر النسخ، استخدم تصدير TXT: '+e.message,'warning');}
+  }
+  function logsAsText(){return ['GPT SNIPE ACTIVITY LOG',...state.logs.map(x=>`[${x.at}] [${x.level}] ${x.message}`)].join('\n');}
+  function captureVisibleLowestQuiet(){
+    const prices=(state.pageMode?state.nativeItems.map(x=>x.price):resultRows().map(priceFrom)).filter(x=>Number.isSafeInteger(x)&&x>0);
+    if(!prices.length)return;
+    const value=Math.min(...prices);
+    state.lowestObserved={price:value,at:new Date().toISOString(),sampleCount:prices.length};
+    if($('lowestPriceValue'))$('lowestPriceValue').textContent=fmt(value)+' Coins';
+    if($('lowestPriceMeta'))$('lowestPriceMeta').textContent=`${prices.length} readable listing(s) · ${new Date().toLocaleTimeString()}`;
+  }
+  function captureVisibleLowest(){
+    const rows=resultRows();const prices=(state.pageMode?state.nativeItems:rows.map(row=>({price:priceFrom(row),name:row.dataset.playerName||''}))).filter(x=>Number.isSafeInteger(x.price)&&x.price>0);
+    const minimum=prices.sort((a,b)=>a.price-b.price)[0];
+    state.lowestObserved=minimum?{...minimum,at:new Date().toISOString(),sampleCount:prices.length}:null;
+    if($('lowestPriceValue'))$('lowestPriceValue').textContent=minimum?fmt(minimum.price)+' Coins':'—';
+    if($('lowestPriceMeta'))$('lowestPriceMeta').textContent=minimum?`${prices.length} readable listing(s) · ${new Date().toLocaleTimeString()}`:tr('notobserved');
+    addLog(minimum?`أقل سعر ظاهر في ${prices.length} عروض: ${fmt(minimum.price)} Coins`:'لم يظهر أي سعر Buy Now قابل للقراءة في نتائج السوق.',minimum?'success':'warning');
+  }
+  function exportNativeMap(){
+    const {fields,hasSearch}=inspectNative();
+    const data={kind:'GPT SNIPE DOM map - labels only',timestamp:new Date().toISOString(),urlPath:location.pathname,hasSearchButton:hasSearch,
+      nativeFields:fields.slice(0,120).map(({el,label})=>({label:label.slice(0,160),tag:el.tagName,type:el.type||'',name:el.name||'',id:el.id||'',placeholder:el.placeholder||''})),
+      navigation:[...document.querySelectorAll('button,a,[role="tab"],[role="menuitem"]')].filter(e=>visible(e)&&e.getBoundingClientRect().left<340).slice(0,90).map(e=>({tag:e.tagName,role:e.getAttribute('role')||'',label:(e.getAttribute('aria-label')||e.textContent||'').trim().slice(0,75),className:typeof e.className==='string'?e.className.slice(0,100):''}))};
+    const blob=new Blob([JSON.stringify(data,null,2)],{type:'application/json'});
+    const url=URL.createObjectURL(blob);const anchor=document.createElement('a');anchor.href=url;anchor.download='GPT_SNIPE_EA_DOM_Map.json';anchor.click();setTimeout(()=>URL.revokeObjectURL(url),2500);
+    addLog('تم تصدير خريطة عناصر الصفحة بدون قيم الحقول أو رموز تسجيل الدخول.','success');
+  }
+  async function applyNative(){
+    if(state.pageMode){
+      try{
+        const report=await Page.request('applyPrices',{minBid:numeric('minBid'),maxBid:numeric('maxBid'),minBin:numeric('minBin'),maxBin:numeric('maxBin')});
+        mergePageSnapshot(report.snapshot);
+        if(report.snapshot.prices.maxBin!==numeric('maxBin'))throw Error('EA Max Buy Now mismatch.');
+        for(const id of ['ratingMin','ratingMax'])if(input(id))addLog('Rating range is checked against results; EA does not expose a market rating filter.','info');
+        $('nativeInfo').textContent='✓ EA native price handlers confirmed · Max Buy Now '+fmt(report.snapshot.prices.maxBin);
+        return{ok:true,unmapped:[],applied:4};
+      }catch(e){addLog(e.message,'error');return{ok:false,unmapped:[e.message]};}
+    }
+    const audit=inspectNative();if(!audit.hasSearch){$('nativeInfo').textContent+=' Search غير متاح حتى الآن.';return {ok:false,unmapped:['EA Search']};}
+    let applied=0;const unmapped=[];
+    for(const [id,patterns] of bridge){
+      const value=input(id);if(!value)continue;
+      if(id==='player'&&state.nativePlayerConfirmed)continue; // preserve EA autocomplete's actual selected item
+      if(state.nativeChoices?.[id]===value)continue; // preserve EA picker selection
+      const field=findField(patterns);
+      if(field&&setNativeValue(field,value))applied++;
+      else if(['quality','position','nation','club','league'].includes(id)&&state.nativeChoices?.[id]===value)continue; // already selected in EA
+      else unmapped.push(id);
+    }
+    $('nativeInfo').textContent=`تم نقل ${applied} حقل إلى واجهة EA. غير مربوط: ${unmapped.join(', ')||'لا شيء'}.`;
+    $('nativeInfo').className='native-status '+(unmapped.length?'bad':'good');
+    addLog(`المزامنة: ${applied} حقل؛ لم تتم مطابقة ${unmapped.length}.`,unmapped.length?'warning':'success');
+    return {ok:unmapped.length===0,unmapped,applied};
+  }
+  function blocked(){return [...document.querySelectorAll('.ea-dialog-view,.ut-dialog-container,.captcha,[id*="captcha"],iframe[src*="captcha"]')].filter(visible).some(e=>/captcha|verify|robot|unusual|too many|suspicious|blocked|security|روبوت|تحقق|حظر/.test((e.textContent||e.id||e.className||'').toString().toLowerCase()));}
+  function resultRows(){return [...document.querySelectorAll('.listFUTItem.has-auction-data,.SearchResults .listFUTItem')].filter(visible);}
+  function noResults(){return [...document.querySelectorAll('.ut-no-results-view,[class*="no-results"]')].some(visible);}
+  function priceFrom(el){
+    if(!el)return null;
+    for(const attr of ['data-buy-now','data-buy-now-price','data-bin-price']){const p=Core?.coins(el.getAttribute?.(attr));if(p)return p;}
+    for(const node of el.querySelectorAll('[class*="buyNowPrice"],[class*="buy-now-price"],[data-testid*="buy-now-price"]')){const p=Core?.coins(node.textContent);if(p)return p;}
+    const m=(el.textContent||'').match(/(?:buy\s*now|شراء\s*(?:الآن|فوري))\s*[:\-]?\s*([\d٠-٩۰-۹][\d٠-٩۰-۹\s,.،]*)/i);
+    return m?Core?.coins(m[1].trim()):null;
+  }
+  function rowCard(row){
+    const read=s=>row.querySelector(s)?.textContent?.trim()||'';
+    const rating=read('.rating,.player-rating,.ratingValue');
+    return{name:read('.name,.player-name,.ut-item-name,[class*="playerName"]')||row.dataset.playerName||'',rating:/^\d{2}$/.test(rating)?Number(rating):null,itemId:row.dataset.itemId||row.dataset.playerId||row.dataset.resourceId||null,rarity:row.dataset.rarity||read('.rarity,.item-rarity'),price:priceFrom(row)};
+  }
+  function selectedPrice(row){
+    let p=priceFrom(row);if(p)return p;
+    if(!row.classList.contains('selected'))return null;
+    for(const el of document.querySelectorAll('.ut-item-details-view,.ut-auction-details-view,.DetailPanel,.item-details')){
+      if(visible(el)){p=priceFrom(el);if(p)return p;}
+    }return null;
+  }
+  function buyButton(){return [...document.querySelectorAll('button.buyButton,.btn-standard.buyButton,[data-testid="buy-now-button"]')].find(e=>visible(e)&&!e.disabled);}
+  function dialog(){return [...document.querySelectorAll('.ea-dialog-view,.dialog,[role="dialog"]')].filter(visible).at(-1)||null;}
+  function dialogConfirm(el){return [...el.querySelectorAll('button')].find(e=>visible(e)&&!e.disabled&&/^(yes|ok|confirm|buy|purchase|accept|موافق|تأكيد|شراء)$/i.test(e.textContent.trim()))||null;}
+  function dialogPrice(el){const p=priceFrom(el);if(p)return p;const m=(el?.textContent||'').match(/(?:for|price|مقابل|بسعر)\s*([\d٠-٩۰-۹][\d٠-٩۰-۹,.،\s]*)/i);return m?Core.coins(m[1].trim()):null;}
+  function options(){return Core.validate(Core.options({target:input('player'),itemId:input('itemId'),rarity:input('quality'),minRating:input('ratingMin'),maxRating:input('ratingMax'),maxPrice:numeric('maxBin'),maxSpend:numeric('budget'),maxBuys:numeric('maxBuys'),maxSearches:numeric('maxSearches'),intervalMs:rangeConfig().minMs,autoBuy:$('autoBuy').checked}));}
+  function stop(reason='توقف'){if(!state.running&&!state.starting)return;state.starting=false;state.running=false;state.ended=Date.now();state.token++;if(state.pageMode)void Page.request('cancel').catch(()=>{});state.status=reason;addLog(reason,'warning');refresh();save();}
+  async function waitForSearch(token, before=[]){
+    const deadline=Date.now()+8500;
+    while(state.running&&token===state.token&&Date.now()<deadline){
+      if(blocked())throw Error('رُصد CAPTCHA أو رسالة حماية: توقف.');
+      const rows=resultRows();
+      // Never treat leftover cards from the previous search as a new response.
+      if((rows.length && (before.length===0||rows.some((row,i)=>row!==before[i])))||noResults()){
+        await nap(280);return;
+      }
+      await nap(160);
+    }
+    throw Error('لم نستطع تأكيد نتائج بحث جديدة؛ توقف دون التعامل مع نتائج قديمة.');
+  }
+  async function checkRow(row,o,token){
+    if(!state.running||token!==state.token||!visible(row))return false;
+    row.click();await nap(320);if(!state.running||blocked())return false;
+    const card=rowCard(row);card.price=selectedPrice(row);
+    const match=Core.canBuy(card,o,state.spent,state.bought);if(!match.ok)return false;
+    state.matches++;addLog(`فرصة مطابقة: ${card.name||'لاعب'} · ${fmt(card.price)} Coins`,'success');refresh();
+    if(!o.autoBuy){stop('تم العثور على عرض مطابق؛ وضع التنبيه فقط.');return true;}
+    const button=buyButton();if(!button){stop('زر Buy Now غير واضح: لم يتم شراء.');return true;}
+    button.click();let dlg=null;const until=Date.now()+3000;
+    while(state.running&&Date.now()<until){if(blocked()){stop('رُصدت حماية أثناء الشراء.');return true;}dlg=dialog();if(dlg)break;await nap(120);}
+    if(!dlg){stop('نافذة التأكيد غير واضحة: راجع الواجهة يدويًا.');return true;}
+    const price=dialogPrice(dlg);
+    if(!price||price!==card.price||price>o.maxPrice||state.spent+price>o.maxSpend){stop('سعر التأكيد غير مطابق؛ لم نؤكد الشراء.');return true;}
+    const confirm=dialogConfirm(dlg);if(!confirm){stop('زر تأكيد الشراء غير معروف.');return true;}
+    confirm.click();addLog('تم إرسال Buy Now؛ نتحقق من استجابة EA.','warning');
+    const deadline=Date.now()+6500;
+    while(state.running&&Date.now()<deadline){
+      if(row.classList.contains('won')||document.querySelector('.listFUTItem.selected.won')){state.bought++;state.spent+=price;addLog(`شراء مؤكد عبر واجهة EA: ${card.name} · ${fmt(price)}`,'success');refresh();return true;}
+      if(row.classList.contains('expired')||document.querySelector('.listFUTItem.selected.expired')){state.misses++;addLog('العرض انتهى قبل الشراء.','warning');return true;}
+      if(blocked()){stop('رسالة حماية بعد محاولة الشراء.');return true;}await nap(180);
+    }
+    stop('تم إرسال الطلب لكن نتيجته غير مؤكدة؛ راجع حسابك.');return true;
+  }
+  async function checkNativeOffers(o,token){
+    for(const item of state.nativeItems){
+      if(!state.running||token!==state.token)return;
+      const baseId=state.selected?Number(state.selected.playerId||state.selected.itemId):null;
+      if(baseId&&item.playerId!==baseId)continue;
+      const rarities=state.pageSnapshot?.rarities||[];
+      if(rarities.length&&!rarities.includes(item.rarityId))continue;
+      // EA applied native category filters; verify the returned ID, rarity and price again.
+      const check=Core.canBuy(item,{...o,target:baseId?'':o.target,rarity:''},state.spent,state.bought);
+      if(!check.ok)continue;
+      if(!o.autoBuy){
+        state.matches++;addLog('EA confirmed matching listing: '+(item.name||item.playerId)+' · '+fmt(item.price)+' Coins','success');
+        stop('EA native match found — alert mode.');return;
+      }
+      const rows=resultRows().filter(row=>
+        (item.tradeId&&row.dataset.tradeId===item.tradeId)||(item.instanceId&&row.dataset.id===item.instanceId));
+      if(rows.length===1 && await checkRow(rows[0],o,token))return;
+      stop('EA returned a matching listing, but its Buy Now UI identity could not be verified. No purchase confirmed.');return;
+    }
+  }
+  async function run(o,token){
+    try{while(state.running&&state.token===token&&state.searches<o.maxSearches&&state.bought<o.maxBuys){
+      if(blocked())throw Error('تم اكتشاف رسالة حماية.');
+      if(state.pageMode){
+        const started=Date.now();state.nextIntervalMs=Core.randomInterval(rangeConfig().minMs,rangeConfig().maxMs);
+        const ready=await Page.request('connect');mergePageSnapshot(ready.snapshot);
+        if(ready.snapshot.criteriaKey!==o.criteriaKey)throw Error('Native EA filters changed; restart the session to confirm them.');
+        if(!state.running||token!==state.token)return;
+        const applied=await applyNative();if(!applied.ok)throw Error(applied.unmapped.join(', '));
+        if(!state.running||token!==state.token)return;
+        refresh();
+        const response=await Page.request('search',{maxBin:o.maxPrice,criteriaKey:o.criteriaKey,playerId:state.selected?Number(state.selected.playerId||state.selected.itemId):null});
+        if(!state.running||token!==state.token)return;
+        state.searches++;state.nativeItems=response.items;displayNativeOffers();
+        addLog('EA native search #'+state.searches+' · confirmed response: '+response.count+' listing(s)','success');
+        await checkNativeOffers(o,token);
+        state.lastCycleMs=Date.now()-started;
+        captureVisibleLowestQuiet();refresh();
+        if(state.running){const rest=Math.max(0,state.nextIntervalMs-state.lastCycleMs);if(rest)await nap(rest);}
+        continue;
+      }
+      let b=findNativeSearchButton();if(!b){const back=findBackButton();if(back){back.click();await nap(450);b=findNativeSearchButton();}}
+      if(!b)throw Error('زر EA Search مش موجود. افتح صفحة Transfer Market Search.');
+      const started=Date.now();state.nextIntervalMs=Core.randomInterval(rangeConfig().minMs,rangeConfig().maxMs);const priorRows=resultRows();b.click();state.searches++;refresh();addLog(`بحث #${state.searches} · الفاصل المختار ${(state.nextIntervalMs/1000).toFixed(2)}s`);
+      await waitForSearch(token,priorRows);if(!state.running||token!==state.token)return;
+      displayNativeOffers();
+      for(const row of resultRows().slice(0,30)){if(await checkRow(row,o,token))break;if(!state.running)return;}
+      if(!state.running||state.bought>=o.maxBuys)break;
+      state.lastCycleMs=Date.now()-started;captureVisibleLowestQuiet();refresh();const remainder=Math.max(0,state.nextIntervalMs-state.lastCycleMs);if(remainder)await nap(remainder);
+    }if(state.running)stop(state.bought>=o.maxBuys?'اكتمل عدد المشتريات':'اكتمل عدد عمليات البحث');}
+    catch(e){state.status='خطأ';addLog(`تم إيقاف المحرك: ${e.message}`,'error');if(state.running)stop('توقف عند خطأ');state.status='خطأ';refresh();}
+  }
+  async function start(){
+    if(state.running||state.starting)return;
+    const startToken=++state.token;state.starting=true;refresh();
+    try{
+    if(state.selectedTargets.length>1){addLog('تم اختيار عدة بطاقات؛ السوق الأصلي لا يدعم البحث المتعدد من الواجهة الحالية. استخدم بطاقة واحدة أو اكمل ربط القوائم أولًا.','warning');$('compatPanel').open=true;compatibilityAudit();return;}
+    if(!Core){addLog('مكتبة التحقق من الفلاتر غير متاحة','error');return;}
+    let o;try{o=options();}catch(e){addLog(e.message,'error');return;}
+    if(Page && !await connectEA())return;
+    if(!state.pageMode&&!findNativeSearchButton()){
+      addLog('زر Search غير ظاهر؛ محاولة فتح السوق الأصلي تلقائيًا.','info');
+      const connected=await connectEA();
+      if(!connected || !findNativeSearchButton()){
+        addLog('فشل بدء البحث: زر EA Search غير متاح بعد محاولة ربط السوق. افتح خريطة DOM لتحديد المشكلة.','error');
+        $('compatPanel').open=true;compatibilityAudit();return;
+      }
+    }
+    // Never start a targeted session with only a catalogue card name and an unverified EA autocomplete selection.
+    if(state.selected && input('player') && !state.nativePlayerConfirmed){
+      addLog('تم اختيار بطاقة في الكتالوج لكن اختيار EA الأصلي لم يُؤكد؛ راجع فلتر اللاعب في EA ثم أعد المحاولة.','warning');
+      $('nativeInfo').textContent='الاسم المختار من FUT.GG لا يثبت اختيار نفس البطاقة في EA. افتح فلتر اللاعب الأصلي واختره ثم جرّب.';
+      return;
+    }
+    const transfer=await applyNative();
+    if(!transfer?.ok){addLog('تم إيقاف Start: بعض الفلاتر لا يمكن ربطها مع سوق EA: '+(transfer?.unmapped||[]).join(', '),'error');$('compatPanel').open=true;compatibilityAudit();return;}
+    if(state.pageMode)o.criteriaKey=state.pageSnapshot.criteriaKey;
+    const nativeMax=findField(bridge.find(([id])=>id==='maxBin')[1]);
+    if(state.pageMode?state.pageSnapshot?.prices?.maxBin!==numeric('maxBin'):(!nativeMax||String(nativeMax.value||'').replace(/[^0-9]/g,'')!==String(numeric('maxBin')))){
+      addLog('لم نستطع التحقق أن Max Buy Now انتقل إلى EA؛ لن نبدأ بحثًا بسعر غير محدد.','error');return;
+    }
+    if(blocked()){addLog('رسالة حماية ظاهرة؛ لن يبدأ المحرك.','error');return;}
+    if(o.autoBuy && !confirm(`GPT SNIPE سوف يحاول تنفيذ Buy Now تلقائيًا\n\nMax Buy: ${fmt(o.maxPrice)} Coins\nSession Budget: ${fmt(o.maxSpend)} Coins\nMax Purchases: ${o.maxBuys}\n\nتحذير: EA تمنع Auto Buyers وقد يتعرض حسابك للحظر. قبولك لا يعني أن الشراء آمن. هل تريد البدء؟`))return;
+    if(startToken!==state.token)return;
+    state.token++;state.running=true;state.started=Date.now();state.ended=0;state.lastCycleMs=0;state.nextIntervalMs=0;state.searches=0;state.matches=0;state.bought=0;state.misses=0;state.spent=0;state.status='يبحث';state.logs=[];
+    addLog(o.autoBuy?'بدأ Auto Snipe (اختيار صريح)':'بدأ البحث في وضع التنبيه بدون شراء','success');refresh();save();run(o,state.token);
+    }finally{state.starting=false;refresh();}
+  }
+  function presetSave(){const name=prompt('اسم إعداد السنايب؟');if(!name?.trim())return;state.presets[name.trim().slice(0,45)]=readSettingsSafe();populatePresets();$('presets').value=name.trim().slice(0,45);addLog('تم حفظ Preset: '+name,'success');save();}
+  function populatePresets(){const el=$('presets');if(!el)return;el.replaceChildren(new Option('اختر إعدادًا محفوظًا',''));for(const k of Object.keys(state.presets))el.append(new Option(k,k));}
+  function exportLogs(){const cells=[['time','level','message'],...state.logs.map(x=>[x.at,x.level,x.message])];const text=cells.map(a=>a.map(v=>'"'+String(v).replace(/"/g,'""')+'"').join(',')).join('\r\n');const url=URL.createObjectURL(new Blob(['\ufeff'+text],{type:'text/csv;charset=utf-8'}));const a=document.createElement('a');a.href=url;a.download='GPT_SNIPE_Logs.csv';a.click();setTimeout(()=>URL.revokeObjectURL(url),2000);}
+  function setLanguage(lang){
+    if(lang!=='ar'&&lang!=='en'||state.language===lang)return;
+    const settings=readSettingsSafe(),opens=[...shadow.querySelectorAll('details')].map(x=>x.open);
+    state.language=lang;
+    const node=shadow.querySelector('#shell'),wrapper=document.createElement('div');wrapper.innerHTML=uiHTML();node.replaceWith(wrapper.firstElementChild);
+    [...shadow.querySelectorAll('details')].forEach((d,i)=>d.open=opens[i]??d.open);
+    fillSettings(settings);populatePresets();updateSpeedControls();renderPlayers(state.players);renderTargets();renderEvents();updateDatalists();renderLogs();renderDiagnostics();bindUI();refresh();save();
+  }
+  function bindUI(){
+    $('close').addEventListener('click',closePanel);
+    $('player').addEventListener('input',()=>{clearTimeout(searchTimer);searchTimer=setTimeout(searchPlayers,430);});
+    $('addEvent').addEventListener('click',addEvent);
+    $('clearTargets').addEventListener('click',async()=>{
+      if(state.running||state.starting)return;
+      try{
+        if(state.pageMode){await Page.request('connect');const response=await Page.request('clearPlayer');mergePageSnapshot(response.snapshot);}
+        state.selectedTargets=[];state.selected=null;state.nativePlayerConfirmed=false;$('player').value='';$('itemId').value='';
+        renderTargets();renderPlayers(state.players);save();
+      }catch(e){addLog(e.message,'error');}
+    });
+    $('syncPlayerEA').addEventListener('click',confirmNativePlayer);
+    $('speedPreset').addEventListener('change',()=>{updateSpeedControls();save();});
+    $('speedMin').addEventListener('input',()=>{updateSpeedControls();save();});
+    $('speedMax').addEventListener('input',()=>{updateSpeedControls();save();});
+    $('language').addEventListener('change',()=>setLanguage(input('language')));
+    $('runDiag').addEventListener('click',compatibilityAudit);
+    $('copyDiag').addEventListener('click',()=>copyText(auditAsText()));
+    $('exportDiagText').addEventListener('click',()=>saveTextFile('GPT_SNIPE_Compatibility.txt',auditAsText()));
+    $('exportDiagJson').addEventListener('click',()=>saveTextFile('GPT_SNIPE_Compatibility.json',JSON.stringify(state.lastAudit||compatibilityAudit(),null,2),'application/json'));
+    $('copyLog').addEventListener('click',()=>copyText(logsAsText()));
+    $('exportLogText').addEventListener('click',()=>saveTextFile('GPT_SNIPE_Activity_Log.txt',logsAsText()));
+    $('copyTechnical').addEventListener('click',()=>copyText(technicalAsText()));
+    $('exportTechnical').addEventListener('click',()=>saveTextFile('GPT_SNIPE_Technical_Log.txt',technicalAsText()));
+    $('checkLowest').addEventListener('click',captureVisibleLowest);
+
+    $('inspect').addEventListener('click',inspectNative);$('sync').addEventListener('click',applyNative);$('exportMap').addEventListener('click',exportNativeMap);
+    $('native').addEventListener('click',connectEA);
+    $('connectEA').addEventListener('click',connectEA);
+    $('exportConnection').addEventListener('click',()=>{
+      const report=Page?state.pageConnection:Native?.connectionReport?.();
+      if(!report){addLog(state.language==='ar'?'اضغط اتصل بسوق EA أولًا.':'Connect to EA Market first.','warning');return;}
+      saveTextFile('GPT_SNIPE_Connection.json',JSON.stringify(report,null,2),'application/json');
+    });
+    $('refreshNative').addEventListener('click',async()=>{
+      try{if(state.pageMode){const snap=await Page.request('readFilters');mergePageSnapshot(snap);}}
+      catch(e){addLog(e.message,'error');}
+      inspectNative();compatibilityAudit();
+    });
+    for(const btn of shadow.querySelectorAll('[data-native-picker]'))btn.addEventListener('click',()=>showNativePicker(btn.dataset.nativePicker).catch(e=>{addLog(e.message,'error');$('pickerStatus').textContent=e.message;}));
+    $('captureOffers').addEventListener('click',displayNativeOffers);
+    $('start').addEventListener('click',start);$('stop').addEventListener('click',()=>stop('تم الإيقاف يدويًا'));
+    $('export').addEventListener('click',exportLogs);$('savePreset').addEventListener('click',presetSave);
+    $('presets').addEventListener('change',()=>{if(!state.running&&state.presets[$('presets').value]){fillSettings(state.presets[$('presets').value]);addLog('تم تحميل Preset','success');}});
+    shadow.addEventListener('change',e=>{if(e.target.matches('input,select')&&!state.running)save();});
+  }
+  async function init(){
+    if(!Core)console.warn('[GPT SNIPE] missing engine core');
+    if(!document.getElementById('gpts-v3-nav-style')){navStyle.id='gpts-v3-nav-style';document.head?.appendChild(navStyle);}
+    createPortal();
+    try{const stored=await chrome.storage.local.get(STORAGE);const config=stored[STORAGE]||{};state.presets=config.presets||{};state.cache=config.cache||[];state.logs=config.logs||[];state.selected=config.selected||null;state.selectedTargets=Array.isArray(config.selectedTargets)?config.selectedTargets:[];state.eventTargets=Array.isArray(config.eventTargets)?config.eventTargets:[];
+      if(config.language==='en')setLanguage('en');
+      fillSettings(config.settings||{});populatePresets();updateSpeedControls();renderLogs();renderTargets();renderEvents();updateDatalists();}
+    catch(e){addLog('تعذر قراءة الإعدادات المحلية: '+e.message,'warning');}
+    updateSpeedControls();observeNav();refresh();timer=setInterval(refresh,1000);
+    window.addEventListener('pagehide',()=>{if(state.running)stop('صفحة EA اتقفلت أو اتحدثت');});
+    addLog('واجهة GPT SNIPE v3 جاهزة — بانتظار اكتشاف قائمة EA.');
+  }
+  if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',init,{once:true});else init();
+})();
