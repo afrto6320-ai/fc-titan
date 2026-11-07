@@ -32,10 +32,10 @@
     const c = context();
     const marketAllowed = c.game && typeof window.services?.TransferMarket?.isFeatureEnabledForUser === 'function'
       ? window.services.TransferMarket.isFeatureEnabledForUser() === true : false;
-    return {bridgeVersion:'3.9.4',mode:'page-functions', appReady:c.game, marketAllowed,
+    return {bridgeVersion:'3.10.0',mode:'page-functions', appReady:c.game, marketAllowed,
       controller:text(c.controller?.constructor?.name), hasForm:isFilter(c.controller),
       hasResults:Boolean(resultController(c.controller)), busy:Boolean(activeCommand||activeSearch||activePurchase),
-      capabilities:{navigation:typeof c.root?.setGameViewTab === 'function',
+      capabilities:{engineModes:window.CodexEngineModes?1:0,navigation:typeof c.root?.setGameViewTab === 'function',
         filters:typeof window.UTMarketSearchFiltersViewController === 'function',
         search:typeof window.UTMarketSearchFiltersViewController?.prototype?.eSearchSelected === 'function',directSearch:typeof window.services?.Item?.searchTransferMarket==='function',
         purchase:typeof window.UTItemActionController?.prototype?.bid==='function'}};
@@ -150,7 +150,7 @@
     picker = {ctrl,entries,kind,token,playerId,leagueId:kind==='club'?number(filters().viewmodel.searchCriteria.league):null,owner:filters(),signatures:entries.map(model.identity),indices:new Set(presented.options.map(x=>x.index)),labels:new Map(presented.options.map(x=>[x.index,x.label]))};
     return {ok:true,mode:'page-functions',token,...presented};
   }
-  function choose(args) {
+  async function choose(args) {
     const p=picker;
     if (!p || args.token!==p.token || p.owner!==filters() || control(p.kind)!==p.ctrl || readFilters().player?.id!==p.playerId && !(readFilters().player==null&&p.playerId==null))
       fail('STALE_OPTIONS','Reopen the native filter list.');
@@ -162,6 +162,19 @@
     if (p.ctrl.isInteractionEnabled?.()===false) fail('FILTER_LOCKED','EA locked this filter for the current player/category.');
     p.ctrl.setIndex(args.index); // EA dispatches CHANGE and updates dependent filters itself.
     picker=null;
+    if(p.kind==='league'){
+      const owner=p.owner,epoch=cancelEpoch,wanted=Number(chosen.id),deadline=Date.now()+2000,started=Date.now();let stable=0;
+      while(Date.now()<deadline){
+        gate();if(epoch!==cancelEpoch||filters()!==owner)fail('CANCELLED','League selection was cancelled or the view changed.');
+        const snap=readFilters(),actual=Number(owner.viewmodel.searchCriteria.league);
+        const selected=Number(control('league').id)===wanted&&(wanted>0?actual===wanted:!(actual>0));
+        const dependentReady=!(wanted>0)||snap.selections.club?.enabled!==false||Boolean(snap.player);
+        stable=selected&&dependentReady?stable+1:0;
+        if(stable>=3&&Date.now()-started>=100)break;
+        await new Promise(resolve=>setTimeout(resolve,50));
+      }
+      if(Number(control('league').id)!==wanted||(wanted>0&&Number(owner.viewmodel.searchCriteria.league)!==wanted))fail('FILTER_PENDING','EA has not confirmed this league yet. Refresh filters before searching.');
+    }
     return {ok:true,label:p.labels.get(args.index),snapshot:readFilters()};
   }
   function lookup(query) {
@@ -258,6 +271,7 @@
     const value=JSON.stringify(items.map(x=>[x.tradeId,x.price]).sort((a,b)=>String(a[0]).localeCompare(String(b[0]))));
     const oldIDs=new Set(previous?.ids||[]);resultHistory.set(key,{value,ids:items.map(x=>x.tradeId)});
     if(resultHistory.size>32)resultHistory.delete(resultHistory.keys().next().value);
+    for(const item of items)item.seenInPrevious=Boolean(previous&&oldIDs.has(item.tradeId));
     return {identicalToPrevious:Boolean(previous&&previous.value===value),newTrades:previous?items.filter(x=>!oldIDs.has(x.tradeId)).length:null};
   }
   function validatePrices(args){
@@ -289,6 +303,8 @@
     const config=typeof getAppMain==='function'?getAppMain().getConfigRepository?.():null,repo=window.EAConfigurationRepository;
     const settings=repo&&config?.getConfigObject?.(repo.KEY_ITEMS_PER_PAGE),pageSize=settings?.[repo?.ITEMS_PER_PAGE?.TRANSFER_MARKET]??20;
     if(!Number.isSafeInteger(pageSize)||pageSize<1||pageSize>100)fail('SDK_UNAVAILABLE','EA page size changed.');
+    const mode=window.CodexEngineModes?.get(args.engineMode||'codex');if(!mode)fail('UNSUPPORTED','Reload the new engine profile helper.');
+    const firstPageOnly=window.CodexEngineModes.query(mode.id,args.purpose||'scan').firstPageOnly;
     const dto=sdkCriteria(c,plan,pageSize),id=++sequence,startedAt=Date.now(),items=new Map(),itemTimes=new Map();
     let stopped=false,observable=null,owner=null,rejectPending=null,pages=0,endOfList=false,statusCode=null;
     const guard=()=>{if(stopped)fail('CANCELLED','SDK search stopped.');gate();if(context().nav!==ctx.nav||context().controller!==c||readFilters().criteriaKey!==snapshot.criteriaKey)fail('VIEW_CHANGED',changedView());};
@@ -302,7 +318,7 @@
     });
     batch=null;activeSearch={cancel:()=>{stopped=true;rejectPending?.(Object.assign(Error('SDK search stopped.'),{code:'CANCELLED'}));}};
     try{
-      for(let page=1;page<=Math.ceil(limit/pageSize);page++){
+      for(let page=1;page<=(firstPageOnly?1:Math.ceil(limit/pageSize));page++){
         guard();dto.offset=(page-1)*pageSize;window.services.Item.clearTransferMarketCache();
         const reply=await waitResponse(window.services.Item.searchTransferMarket(dto,page));guard();
         if(reply?.success!==true||!Array.isArray(reply.data?.items))fail('SEARCH_REJECTED','EA SDK rejected the market search (status '+String(reply?.status??'unknown')+', code '+String(reply?.error?.code??'unknown')+').');
@@ -315,7 +331,7 @@
       guard();const actual=[...items.values()].slice(0,limit),summaries=actual.map(item=>({...itemSummary(item),observedAt:itemTimes.get(String(item.getAuctionData().tradeId))})),receivedAt=Date.now();
       const audit=compareResults(snapshot.criteriaKey,plan.prices,summaries);
       batch={id,route:'sdk',controller:c,nav:ctx.nav,at:receivedAt,itemTimes,criteriaKey:snapshot.criteriaKey,items:new Map(actual.map(item=>[String(item.getAuctionData().tradeId),item]))};
-      return {ok:true,searchId:id,transport:'ea-sdk-direct',items:summaries,count:summaries.length,requested:limit,pages,pageSize,endOfList,startedAt,receivedAt,durationMs:Math.max(0,receivedAt-startedAt),localCacheCleared:true,freshEvent:true,...audit,nativePrices:{...plan.prices},sdkStatus:statusCode,moreAvailable:!endOfList||items.size>limit};
+      return {ok:true,searchId:id,transport:'ea-sdk-direct',engineMode:mode.id,firstPageOnly,items:summaries,count:summaries.length,requested:limit,pages,pageSize,endOfList,startedAt,receivedAt,durationMs:Math.max(0,receivedAt-startedAt),localCacheCleared:true,freshEvent:true,...audit,nativePrices:{...plan.prices},sdkStatus:statusCode,moreAvailable:!endOfList||items.size>limit};
     }finally{if(observable&&owner)observable.unobserve(owner);activeSearch=null;}
   }
   function search(args){return args.route==='sdk'?searchSDK(args):searchScreen(args);}
@@ -404,7 +420,7 @@
     current.referenceQuote=q;current.referencePrice=q.price;current.maxPrice=args.maxPrice;return {ok:true};
   }
   function beginSession(args){
-    const snap=readFilters();
+    const snap=readFilters(),mode=window.CodexEngineModes?.get(args.engineMode||'codex');if(!mode)fail('UNSUPPORTED','Engine profiles are unavailable.');
     if(session?.uncertain)fail('PURCHASE_UNCERTAIN','Review the previous purchase in EA and reload the Web App before starting again.');
     if(args.criteriaKey!==snap.criteriaKey)fail('FILTER_MISMATCH','EA filters changed before session start.');
     for(const [key,upper] of [['maxPrice',15000000],['maxSpend',30000000],['maxBuys',30]])if(!Number.isSafeInteger(args[key])||args[key]<=0||args[key]>upper)fail('BAD_ARGUMENT','Invalid native session limit.');
@@ -415,7 +431,7 @@
     const targets=Array.isArray(args.targets)?args.targets:[];
     if(targets.length>12||targets.some(t=>typeof t.key!=='string'||t.key.length>100||!Number.isSafeInteger(t.playerId)||t.playerId<=0||t.playerId>0xffffff||t.itemId&&(!Number.isSafeInteger(t.itemId)||t.itemId<=0||t.itemId>0xffffffff)||!Array.isArray(t.rarities)||t.rarities.length>20||t.rarities.some(x=>!Number.isSafeInteger(x)||x<0)))fail('BAD_ARGUMENT','Invalid session target list.');
     if(new Set(targets.map(t=>t.key)).size!==targets.length)fail('BAD_ARGUMENT','Duplicate session target keys.');
-    session={route:args.route==='sdk'?'sdk':'screen',id:'session-'+(++sequence),criteriaKey:snap.criteriaKey,playerId:snap.player?.id||null,
+    session={engineMode:mode.id,route:args.route==='sdk'?'sdk':'screen',id:'session-'+(++sequence),criteriaKey:snap.criteriaKey,playerId:snap.player?.id||null,
       definitionId:args.itemId?Number(args.itemId):null,rarities:[...snap.rarities],minRating:Number(args.minRating)||0,maxRating:Number(args.maxRating)||0,
       hardMaxPrice:Number.isSafeInteger(args.hardMaxPrice)&&args.hardMaxPrice>=args.maxPrice&&args.hardMaxPrice<=15000000?args.hardMaxPrice:args.maxPrice,maxPrice:args.maxPrice,maxSpend:args.maxSpend,maxBuys:args.maxBuys,autoBuy:args.autoBuy===true,
       allowedTargets:new Map(targets.map(t=>[t.key,{...t,rarities:[...t.rarities]}])),priceProvider:args.referenceQuote?.provider||null,pricePlatform:args.referenceQuote?.platform||null,postPurchase:['club','transfer'].includes(args.postPurchase)?args.postPurchase:'leave',referenceQuote:args.referenceQuote||null,referencePrice:Number(args.referencePrice)>0?Number(args.referencePrice):null,threshold:10,spent:0,buys:0,cancelled:false,uncertain:false};
@@ -453,10 +469,11 @@
     const riskSource=current.referencePrice?(current.referenceQuote?.provider||'manual-resale-price'):reference?'ea-market-average':'unknown';
     const riskKey=JSON.stringify([current.id,card.tradeId,card.price,reference,10]);
     if(risk.requiresApproval&&args.approvedRiskKey!==riskKey)return {ok:true,status:'approval-required',riskKey,risk,riskSource};
-    if(typeof window.UTItemActionController?.prototype?.bid!=='function')fail('UNSUPPORTED','Native EA bid action is unavailable.');
+    const serviceBid=window.CodexEngineModes.get(current.engineMode).purchase==='service';
+    if(serviceBid?typeof window.services.Item.bid!=='function':typeof window.UTItemActionController?.prototype?.bid!=='function')fail('UNSUPPORTED','Native EA bid action is unavailable.');
     attemptedTrades.add(card.tradeId);activePurchase={sessionId:current.id};
     try{
-      const action=new window.UTItemActionController(),reply=await observeNative(action.bid(item,card.price),10000);
+      const action=typeof window.UTItemActionController==='function'?new window.UTItemActionController():null,reply=await observeNative(serviceBid?window.services.Item.bid(item,card.price):action.bid(item,card.price),10000);
       if(typeof reply?.success!=='boolean')fail('PURCHASE_UNCERTAIN','EA returned an unrecognized purchase response. Review the Web App before retrying.');
       if(reply?.success!==true){
         const code=reply?.error?.code;
@@ -471,14 +488,14 @@
         if(current.cancelled)destination={status:'skipped',destination:current.postPurchase,reason:'Session stopped after purchase.'};
         else try{
           const pile=window.ItemPile?.[current.postPurchase==='club'?'CLUB':'TRANSFER'];
-          if(pile===undefined||typeof action.move!=='function')throw Error('Native item destination is unavailable.');
+          if(pile===undefined||typeof action?.move!=='function')throw Error('Native item destination is unavailable.');
           const moved=await observeNative(action.move(item,pile),8000);
           const ids=moved?.data?.itemIds;
           if(moved?.success!==true||!Array.isArray(ids)||!ids.some(id=>String(id)===card.instanceId))throw Error('EA did not confirm moving this item; check Unassigned / duplicate items.');
           destination={status:'moved',destination:current.postPurchase};
         }catch(e){destination={status:'failed',destination:current.postPurchase,reason:text(e.message)};}
       }
-      return {ok:true,status:'bought',destination,sessionId:current.id,receiptId:current.id+':'+card.tradeId,tradeId:card.tradeId,price:card.price,spent:current.spent,buys:current.buys,risk,riskSource};
+      return {ok:true,status:'bought',engineMode:current.engineMode,purchaseRoute:serviceBid?'ea-service-bid':'ea-action-bid',destination,sessionId:current.id,receiptId:current.id+':'+card.tradeId,tradeId:card.tradeId,price:card.price,spent:current.spent,buys:current.buys,risk,riskSource};
     }catch(e){if(e.code!=='PURCHASE_REJECTED')current.uncertain=true;throw e;}
     finally{activePurchase=null;}
   }

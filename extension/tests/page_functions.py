@@ -52,6 +52,7 @@ with sync_playwright() as p:
     page.goto(URL)
     page.add_script_tag(content=(ROOT/'trade-core.js').read_text())
     page.add_script_tag(content=(ROOT/'ea-options.js').read_text())
+    page.add_script_tag(content=(ROOT/'engine-modes.js').read_text())
     page.add_script_tag(content=(ROOT/'ea-page-bridge.js').read_text())
     cdp=context.new_cdp_session(page)
     frame=cdp.send('Page.getFrameTree')['frameTree']['frame']['id']
@@ -61,7 +62,7 @@ with sync_playwright() as p:
     stored={'gpts_embedded_v3':{'selected':stale,'selectedTargets':[stale],'settings':{'player':'Mohamed Salah','itemId':'50540979','searchRoute':'screen','bidLadder':'off'}}}
     shim='window.chrome={runtime:{getURL:()=>'+json.dumps(css)+',sendMessage:async()=>{throw Error("Unexpected external catalogue request")}},storage:{local:{get:async()=>('+json.dumps(stored)+'),set:async()=>{}}}};'
     shim+='window.__playedTones=0;const originalOscillator=AudioContext.prototype.createOscillator;AudioContext.prototype.createOscillator=function(){window.__playedTones++;return originalOscillator.call(this);};'
-    scripts=['extension-client.js','price-providers.js','snipe-core.js','trade-core.js','ea-options.js','ea-page-client.js','native-market.js','embedded.js']
+    scripts=['engine-modes.js','extension-client.js','price-providers.js','snipe-core.js','trade-core.js','ea-options.js','ea-page-client.js','native-market.js','embedded.js']
     loaded=cdp.send('Runtime.evaluate',{'contextId':world,'expression':shim+'\n'+'\n'.join((ROOT/name).read_text() for name in scripts)})
     assert 'exceptionDetails' not in loaded,loaded
     def request(command,args=None):
@@ -100,8 +101,13 @@ with sync_playwright() as p:
 
     assert sh.locator('[data-native-picker="club"]').is_disabled()
     assert request('options',{'kind':'club'})['code']=='LEAGUE_REQUIRED'
+    page.evaluate('window.__leagueDelay=250;window.__leagueChoices=0')
     sh.locator('[data-native-picker="league"]').click()
     sh.locator('.native-option').filter(has_text='LaLiga').click()
+    assert sh.locator('#start').is_disabled()
+    page.wait_for_function("!document.querySelector('#gpts-v3-host').shadowRoot.querySelector('[data-native-picker=club]').disabled")
+    assert page.evaluate('__leagueChoices')==1
+    page.evaluate('window.__leagueDelay=0')
     page.wait_for_function('__nav.currentController.viewmodel.searchCriteria.league===53')
     sh.locator('[data-native-picker="club"]').click()
     sh.locator('.native-option').filter(has_text='Real Madrid').wait_for()
@@ -110,6 +116,7 @@ with sync_playwright() as p:
     page.wait_for_function('__nav.currentController.viewmodel.searchCriteria.club===243')
     sh.locator('[data-native-picker="league"]').click();sh.locator('.native-option').filter(has_text='Any league').click()
     page.wait_for_function('__nav.currentController.viewmodel.searchCriteria.league===-1')
+    sh.locator('#nativePickerArea').wait_for(state='hidden')
     assert sh.locator('[data-native-picker="club"]').is_disabled()
     assert page.evaluate('__nav.currentController.viewmodel.searchCriteria.club')==-1
     assert request('options',{'kind':'club'})['code']=='LEAGUE_REQUIRED'
@@ -684,6 +691,7 @@ with sync_playwright() as p:
     sh.locator('#scanMarket').click();page.wait_for_function("()=>!document.querySelector('#gpts-v3-host').shadowRoot.querySelector('#resultsCount').disabled")
     assert sh.locator('.market-card').count()==1 and sh.locator('.market-card').first.get_attribute('data-trade-id')=='sdk-same-offer'
     assert 'نفس العروض' in sh.locator('#marketResponse').inner_text() and 'أرقام جديدة مقارنة بآخر رد: 0' in sh.locator('#marketResponse').inner_text()
+    assert sh.locator('.trade-history[data-seen="true"]').count()==1
     page.evaluate('window.__testItems=[]');sh.locator('#scanMarket').click();page.wait_for_function("()=>!document.querySelector('#gpts-v3-host').shadowRoot.querySelector('#resultsCount').disabled")
     assert sh.locator('.market-card').count()==0 and sh.locator('#lowestPriceValue').inner_text()=='—'
     page.evaluate('window.__sdkError=429');before=page.evaluate('__sdkCalls.length')
@@ -743,6 +751,123 @@ with sync_playwright() as p:
     page.evaluate('window.__realPriceView.setMaxBuyNowPrice=window.__oldMaxBuySetter;window.__realPriceView.setMaxBidPrice=window.__oldMaxBidSetter;')
     sh.locator('#searchRoute').select_option('screen')
     print('PASS: SDK plan/identity validation, original native bid object, confirmed receipt and unchanged shared budget enforcement')
+
+    # Theme changes move existing UI nodes, keep per-theme arrangements, and persist without changing filters.
+    page.evaluate("window.__themeStartNode=document.querySelector('#gpts-v3-host').shadowRoot.querySelector('#start')")
+    cdp.send('Runtime.evaluate',{'contextId':world,'expression':'chrome.storage.local.set=async value=>{window.__lastThemeWrite=value;};'})
+    item_value=sh.locator('#itemId').input_value();price_value=sh.locator('#maxBin').input_value();response_caption=sh.locator('#marketResponse').inner_text()
+    sh.locator('#workspaceTheme').select_option('cockpit')
+    assert page.evaluate("document.querySelector('#gpts-v3-host').shadowRoot.querySelector('#start')===__themeStartNode")
+    assert sh.locator('.column.center [data-panel-key="stats"]').count()==1
+    assert sh.locator('.column.center [data-panel-key="engine"]').count()==1
+    assert sh.locator('.column.control [data-panel-key="players"]').count()==1
+    assert sh.locator('.column.right [data-panel-key="logs"]').count()==1
+    assert sh.locator('.column.right [data-panel-key="market"]').count()==1
+    sh.locator('#editLayout').click()
+    sh.locator('[data-panel-key="engine"] > .panel-head .panel-move[data-move="column"]').click()
+    assert sh.locator('.column.right [data-panel-key="engine"]').count()==1
+    sh.locator('#workspaceTheme').select_option('classic')
+    assert sh.locator('.column.control [data-panel-key="engine"]').count()==1
+    sh.locator('#workspaceTheme').select_option('cockpit')
+    assert sh.locator('.column.right [data-panel-key="engine"]').count()==1
+    sh.locator('#resetLayout').click()
+    assert sh.locator('.column.center [data-panel-key="engine"]').count()==1
+    sh.locator('#editLayout').click()
+    sh.locator('#workspaceTheme').select_option('aurora')
+    assert sh.locator('.column.center [data-panel-key="market"]').count()==1
+    assert sh.locator('.column.right [data-panel-key="engine"]').count()==1
+    sh.locator('#language').select_option('en')
+    assert sh.locator('#workspaceTheme').input_value()=='aurora' and sh.locator('.column.center [data-panel-key="market"]').count()==1
+    sh.locator('#language').select_option('ar')
+    assert sh.locator('#marketResponse').inner_text()==response_caption
+    page.evaluate("window.__themeStartNode=document.querySelector('#gpts-v3-host').shadowRoot.querySelector('#start')")
+    palettes=[]
+    for theme in ['classic','cockpit','aurora']:
+      sh.locator('#workspaceTheme').select_option(theme)
+      assert sh.locator('[data-panel-key]').count()==9 and sh.locator('#start').count()==1
+      assert sh.locator('#itemId').input_value()==item_value and sh.locator('#maxBin').input_value()==price_value
+      palettes.append(sh.locator('[data-panel-key="players"]').evaluate('(e)=>getComputedStyle(e).backgroundImage'))
+      assert page.evaluate("document.querySelector('#gpts-v3-host').shadowRoot.querySelector('#start')===__themeStartNode") is True
+      page.set_viewport_size({'width':1700,'height':1050});sh.locator('#shell').evaluate('(e)=>e.scrollTop=0')
+      page.screenshot(path='/tmp/CODEX_SNIPE_v3.10.0_'+theme+'.png')
+      if theme!='classic':
+        left=sh.locator('.column.control').bounding_box();center=sh.locator('.column.center').bounding_box();right=sh.locator('.column.right').bounding_box()
+        assert left['x']<center['x']<right['x']
+      page.set_viewport_size({'width':600,'height':900})
+      assert sh.locator('#shell').evaluate('(e)=>e.scrollWidth<=e.clientWidth')
+      stop_box=sh.locator('#stop').bounding_box();assert stop_box['x']>=0 and stop_box['x']+stop_box['width']<=600 and stop_box['y']+stop_box['height']<=900
+    assert len(set(palettes))==3
+    write=cdp.send('Runtime.evaluate',{'contextId':world,'expression':'window.__lastThemeWrite.gpts_embedded_v3','returnByValue':True})['result']['value']
+    assert write['workspaceTheme']=='aurora' and write['themeLayouts']['cockpit']['center']==['stats','engine']
+    page.set_viewport_size({'width':1500,'height':1000});sh.locator('#workspaceTheme').select_option('classic')
+    print('PASS: three distinct theme layouts/palettes, per-theme panel order/reset, persistence, language rebuild, unchanged filter values and responsive fixed controls')
+
+    # Profile strategies share native identity/receipt guards but choose different candidates and purchase wrappers.
+    page.evaluate("""() => {
+      window.__originalActionBid=UTItemActionController.prototype.bid;window.__actionBidCalls=0;
+      UTItemActionController.prototype.bid=function(...args){window.__actionBidCalls++;return __originalActionBid.apply(this,args);};
+      window.__makeModeOffers=(prefix,count=45)=>{
+        const template=resetTrade(prefix+'-template');
+        const rows=Array.from({length:count},(_,i)=>{const price=i===0?900:i===1?700:i===2?800:950;
+          const auction={tradeId:prefix+'-'+i,buyNowPrice:price,won:false,canBuy:coins=>!auction.won&&coins>=price,getSecondsRemaining:()=>auction.won?0:60,isWon:()=>auction.won};
+          return {...template,id:800000+i,getAuctionData:()=>auction,getMarketAverage:()=>i===2?2000:1000};
+        });window.__modeRows=rows;window.__testItems=rows;window.__testPages=[rows.slice(0,21),rows.slice(20,41),rows.slice(40)];window.__sdkCalls=[];return rows;
+      };
+      window.__testDelay=50;window.__bidScenario='won';
+    }""")
+    sh.locator('#resultsCount').fill('37');sh.locator('#maxBin').fill('1000');sh.locator('#budget').fill('2000')
+    sh.locator('#maxBuys').fill('1');sh.locator('#maxSearches').fill('1');sh.locator('#autoBuy').uncheck()
+    sh.locator('#engineMode').select_option('pharaoh')
+    page.evaluate("__makeModeOffers('profile-manual')")
+    sh.locator('#scanMarket').click();page.wait_for_function("()=>!document.querySelector('#gpts-v3-host').shadowRoot.querySelector('#resultsCount').disabled")
+    assert sh.locator('.market-card').count()==37 and page.evaluate('__sdkCalls.length')==2
+    assert sh.locator('.market-card').first.get_attribute('data-trade-id')=='profile-manual-0'
+    for mode,expected,pages,action_delta in [('pharaoh',0,1,0),('deep',2,1,1),('enhancer',1,2,0)]:
+      sh.locator('#engineMode').select_option(mode);page.evaluate("__makeModeOffers('profile-'+"+json.dumps(mode)+")")
+      before=page.evaluate('({bid:__bidCalls,action:__actionBidCalls})');sh.locator('#autoBuy').check();
+      if mode=='pharaoh':page.evaluate('window.__testDelay=650')
+      sh.locator('#start').click()
+      if mode=='pharaoh':
+        page.wait_for_function('__sdkCalls.length===1');sh.locator('#workspaceTheme').select_option('cockpit');sh.locator('#workspaceTheme').select_option('aurora')
+      page.wait_for_function("()=>{const s=document.querySelector('#gpts-v3-host').shadowRoot;return s.querySelector('#buyCount').textContent==='1'&&!s.querySelector('#start').disabled;}")
+      assert page.evaluate('__bidCalls')==before['bid']+1 and page.evaluate('__actionBidCalls')==before['action']+action_delta
+      assert page.evaluate('__lastBidItem===__modeRows['+str(expected)+']') and page.evaluate('__sdkCalls.length')==pages
+      assert sh.locator('#spent').inner_text()==str([900,700,800][expected])
+      assert sh.locator('.market-card').count()==(20 if pages==1 else 37)
+      assert mode.lower() in sh.locator('#marketResponse').inner_text().lower()
+    sh.locator('#workspaceTheme').select_option('classic');page.evaluate('window.__testDelay=50')
+    print('PASS: all three UI modes use native EA results, preserve manual count, enforce first-page sniping where specified, choose the correct native item and confirm actual spending')
+
+    sh.locator('#engineMode').select_option('deep');page.evaluate("__makeModeOffers('profile-stop')")
+    calls=page.evaluate('__bidCalls');sh.locator('#start').click()
+    sh.locator('#cyclePhase').filter(has_text='انتظار محاولة الشراء').wait_for();sh.locator('#stop').click();page.wait_for_timeout(400)
+    assert page.evaluate('__bidCalls')==calls and sh.locator('#buyCount').inner_text()=='0'
+    print('PASS: Stop during the Deep pre-buy delay dispatches no bid and records no purchase')
+
+    # Repeated real offers are retained once each; equal player names do not merge different auctions.
+    sh.locator('#autoBuy').uncheck();sh.locator('#engineMode').select_option('enhancer')
+    page.evaluate("__makeModeOffers('profile-repeat',2);window.__testPages=undefined;window.__testItems.push(__testItems[0]);window.__testDelay=150")
+    sh.locator('#scanMarket').click();sh.locator('#scanMarket').click()
+    page.wait_for_function("()=>!document.querySelector('#gpts-v3-host').shadowRoot.querySelector('#resultsCount').disabled")
+    assert sh.locator('.market-card').count()==2 and sh.locator('.trade-history[data-seen="true"]').count()==2
+    assert sh.locator('.market-card[data-trade-id="profile-repeat-0"]').count()==1
+    assert sh.locator('.market-card[data-trade-id="profile-repeat-1"]').count()==1
+    print('PASS: rapid refreshes never append duplicate Trade IDs, distinct same-player auctions stay visible and repeated server offers are explicitly labelled')
+
+    # Direct-service profiles retain the original native shared-budget guard and never rebid an over-budget item.
+    for mode in ['pharaoh','enhancer']:
+      snap=request('connect')['result']['snapshot'];plan=request('prepareSearch',{'criteriaKey':snap['criteriaKey'],'prices':{'minBid':0,'maxBid':0,'minBin':0,'maxBin':1000}})['result']
+      session_id=request('beginSession',{'engineMode':mode,'route':'sdk','planId':plan['planId'],'criteriaKey':snap['criteriaKey'],'maxPrice':1000,'maxSpend':1500,'maxBuys':2,'autoBuy':True})['result']['sessionId']
+      for number in [1,2]:
+        page.evaluate("resetTrade("+json.dumps('profile-budget-'+mode+'-'+str(number))+");window.__testPages=undefined")
+        result=request('search',{'engineMode':mode,'purpose':'snipe','route':'sdk','planId':plan['planId'],'maxBin':1000,'criteriaKey':snap['criteriaKey'],'limit':5})['result']
+        before=page.evaluate('__bidCalls');reply=request('buy',{'sessionId':session_id,'searchId':result['searchId'],'tradeId':'profile-budget-'+mode+'-'+str(number),'instanceId':'123456','expectedPrice':900})
+        if number==1:assert reply['result']['status']=='bought' and reply['result']['purchaseRoute']=='ea-service-bid' and reply['result']['spent']==900
+        else:assert reply['code']=='LIMIT' and page.evaluate('__bidCalls')==before
+      request('cancel')
+    print('PASS: Pharaoh/Enhancer service-bid routes preserve original-item identity, confirmed receipt and the immutable shared budget')
+    page.evaluate('UTItemActionController.prototype.bid=window.__originalActionBid;window.__testDelay=50')
+    sh.locator('#engineMode').select_option('codex');sh.locator('#searchRoute').select_option('screen');sh.locator('#resultsCount').fill('20')
 
     # A successful transport with no isWon state is uncertain, not a completed purchase.
     page.evaluate("resetTrade('uncertain-buy');window.__bidScenario='pending'")

@@ -250,3 +250,59 @@ hr{height:1px;border:0;background:#273742;margin:14px 0}
 .market-card-info p{font-size:12px;line-height:13px;font-weight:600}
 .provider-actions{font-size:12px}
 @media(max-width:650px){.market-card-info p{font-size:10px;line-height:11px}}
+
+/* Strategy choice and truthful auction identity history. */
+#engineModeHelp{padding:10px 12px;border-inline-start:2px solid #a1cf76;background:#192b2566;border-radius:6px;margin:0}
+.trade-history{display:block;font-size:10px;font-weight:650;color:#bfe393;line-height:1.4;margin-top:3px}.trade-history[data-seen="true"]{color:#a9b5c0}
+
+/* Live workspace presets: existing nodes move between columns; sessions remain intact. */
+.workspace-theme{gap:6px}.workspace-theme select{height:36px;width:190px;max-width:225px;padding:0 9px;border:1px solid #3d5360;border-radius:8px;background:#1a2a32;color:#d7e8e8;font-size:12px;font-weight:700}
+#shell[data-theme="classic"] .column.center{display:none}
+#shell[data-theme="cockpit"] .layout{grid-template-columns:minmax(290px,1.05fr) minmax(290px,.95fr) minmax(310px,1.12fr);gap:14px;padding:12px 18px 28px}
+#shell[data-theme="aurora"] .layout{grid-template-columns:minmax(285px,.92fr) minmax(360px,1.35fr) minmax(285px,.88fr);gap:18px;padding:16px 20px 28px}
+:host([data-theme="cockpit"]){--mint:#66e3f0;--line:#28516b;--text:#edfaff;--muted:#9cb9cd}
+#shell[data-theme="cockpit"]{background:radial-gradient(ellipse at 45% 0%,#123f5660,transparent 55%),#071722}
+#shell[data-theme="cockpit"] .top{background:#091d2bed;border-color:#2a5065}
+#shell[data-theme="cockpit"] .panel{border-radius:9px;background:linear-gradient(145deg,#102c3eee,#0c202eef);border-color:#2a4e64;box-shadow:0 10px 26px #0002}
+#shell[data-theme="cockpit"] .panel-head{padding:14px;border-color:#2a5065;background:#13324780}
+#shell[data-theme="cockpit"] .panel-body{padding:14px}
+#shell[data-theme="cockpit"] .column{gap:14px}
+#shell[data-theme="cockpit"] :is(input,select,.native-select){background:#091d2a;border-color:#335f77;border-radius:6px}
+#shell[data-theme="cockpit"] .brand h1 span{color:#66e3f0}
+:host([data-theme="cockpit"]) .primary,:host([data-theme="cockpit"]) .mark{background:linear-gradient(110deg,#90f4ee,#3bc6e4);border-color:#a2f5f8;color:#08212d;box-shadow:0 5px 22px #49d5e422}
+#shell[data-theme="cockpit"] .transfer-section>.panel-head{background:#15384d}
+#shell[data-theme="cockpit"] :is(.price-controls,.active-target-strip,.selected-empty){background:#0c2737;border-color:#32647a}
+#shell[data-theme="cockpit"] .selected-card{background:linear-gradient(145deg,#1b3d4c,#0d2536)}
+#shell[data-theme="cockpit"] .selected-card.active{border-color:#69eaf0;box-shadow:0 0 0 1px #69eaf044}
+#shell[data-theme="cockpit"] .market-card{background:linear-gradient(120deg,#102d40,#0b2230);border-color:#2b5269;border-radius:9px}
+#shell[data-theme="cockpit"] :is(.metric,.substat,.market-low,.hint){background:#0b2333;border-color:#2a5065}
+#shell[data-theme="cockpit"] #nativePickerArea{background:#102d3e;border-color:#6ecddb}
+:host([data-theme="cockpit"]) .run-dock{border-color:#3f8e9e;background:linear-gradient(110deg,#103346f5,#0b2031f8);border-radius:9px}
+:host([data-theme="cockpit"]) :is(.dock-summary>b,.market-card-price),#shell[data-theme="cockpit"] .clock-center #speedValue{color:#79e8ee}
+#shell[data-theme="cockpit"] :is(#cycleRing,.gauge-rotor circle){stroke:#6ae7ed}#shell[data-theme="cockpit"] .cycle-dot{fill:#6ae7ed}
+:host([data-theme="aurora"]){--mint:#dab6ff;--line:#523c63;--text:#fff2ff;--muted:#baa9c8}
+#shell[data-theme="aurora"]{background:radial-gradient(ellipse at 25% 0%,#733b6544,transparent 45%),radial-gradient(ellipse at 85% 70%,#52368355,transparent 50%),#17111e}
+#shell[data-theme="aurora"] .top{background:#21152bec;border-color:#62426c}
+#shell[data-theme="aurora"] .panel{border-radius:22px;background:linear-gradient(145deg,#30203bee,#20182bef);border-color:#5c436d;box-shadow:0 15px 38px #0a031c44}
+#shell[data-theme="aurora"] .panel-head{padding:16px;background:#402b4c55;border-color:#5c436d}
+#shell[data-theme="aurora"] .panel-body{padding:16px}
+#shell[data-theme="aurora"] .column{gap:18px}
+#shell[data-theme="aurora"] :is(input,select,.native-select){background:#1c1427;border-color:#665078;border-radius:11px;color:#f7eafa}
+#shell[data-theme="aurora"] .brand h1 span{color:#e3bbff}
+:host([data-theme="aurora"]) .primary,:host([data-theme="aurora"]) .mark{background:linear-gradient(110deg,#ffe0a4,#e2a9d0);color:#321b36;border-color:#ffe1ca;box-shadow:0 5px 22px #e6b3d025}
+#shell[data-theme="aurora"] .transfer-section>.panel-head{background:#422b4c}
+#shell[data-theme="aurora"] :is(.price-controls,.active-target-strip,.selected-empty){background:#2b1d36;border-color:#755b82}
+#shell[data-theme="aurora"] .selected-card{background:linear-gradient(145deg,#50324f,#281f37)}
+#shell[data-theme="aurora"] .selected-card.active{border-color:#f1c791;box-shadow:0 0 0 1px #f1c79155}
+#shell[data-theme="aurora"] .market-card{background:linear-gradient(120deg,#382540,#251c32);border-color:#614571;border-radius:17px}
+#shell[data-theme="aurora"] :is(.metric,.substat,.market-low,.hint){background:#291d35;border-color:#654a73}
+#shell[data-theme="aurora"] #nativePickerArea{background:#30203e;border-color:#b98ccf}
+:host([data-theme="aurora"]) .run-dock{background:linear-gradient(110deg,#3b2546f5,#281b39f8);border-color:#aa7d9a;border-radius:18px}
+:host([data-theme="aurora"]) :is(.dock-summary>b,.market-card-price),#shell[data-theme="aurora"] .clock-center #speedValue{color:#f6ce9b}
+#shell[data-theme="aurora"] :is(#cycleRing,.gauge-rotor circle){stroke:#d5acfa}#shell[data-theme="aurora"] .cycle-dot{fill:#f6ce9b}
+@media(max-width:1290px) and (min-width:851px){#shell:is([data-theme="cockpit"],[data-theme="aurora"]) .layout{grid-template-columns:minmax(0,1fr) minmax(0,1fr)}#shell:is([data-theme="cockpit"],[data-theme="aurora"]) .column.right{grid-column:1/-1}}
+@media(max-width:850px){#shell:is([data-theme="cockpit"],[data-theme="aurora"]) .layout{grid-template-columns:minmax(0,1fr);padding:10px;gap:12px}#shell:is([data-theme="cockpit"],[data-theme="aurora"]) .column{grid-column:auto}.workspace-theme select{max-width:190px}}
+#shell:is([data-theme="cockpit"],[data-theme="aurora"]) .collapsible>summary.panel-head{padding-left:45px}
+.form-grid>.desc.full{grid-column:1/-1}
+#shell:is([data-theme="cockpit"],[data-theme="aurora"]) #selectedTargets[data-count="1"]{justify-content:center}
+#shell[data-theme="cockpit"] #engineModeHelp{background:#143d5066;border-color:#68d4e5}#shell[data-theme="aurora"] #engineModeHelp{background:#52336266;border-color:#d5adf7}

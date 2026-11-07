@@ -1,13 +1,19 @@
-/* CODEX SNIPE v3.9.4 embedded interface; uses native EA services without exporting authentication tokens. */
+/* CODEX SNIPE v3.10.0 embedded interface; uses native EA services without exporting authentication tokens. */
 (() => {
   'use strict';
   if (window.__GPT_SNIPE_V3__) return;
   window.__GPT_SNIPE_V3__ = true;
   const Extension=window.CodexExtensionClient;
+  const Modes=window.CodexEngineModes;
   const Core = window.GPTSnipeCore;
   const Native = window.GPTNativeMarket;
   const Page = window.GPTPageClient;
   const STORAGE = 'gpts_embedded_v3';
+  const THEME_LAYOUTS={
+    classic:{control:['players','engine'],center:[],right:['stats','market','logs','connection','compat','technical','data']},
+    cockpit:{control:['players'],center:['stats','engine'],right:['market','logs','connection','compat','technical','data']},
+    aurora:{control:['players','connection'],center:['market','stats'],right:['engine','logs','compat','technical','data']}
+  };
   const READY = 'جاهز';
   const state = {
     open:false, running:false, starting:false, token:0, searches:0, matches:0, bought:0, misses:0, spent:0,
@@ -31,12 +37,12 @@
     if(shadow){renderLogs();if($('technicalLogs'))$('technicalLogs').textContent=technicalAsText();} save();
   }
   function save(){
-    const payload={presets:state.presets,logs:state.logs.slice(0,70),cache:state.cache.slice(0,80),selected:state.selected,selectedTargets:state.selectedTargets.slice(0,12),eventTargets:state.eventTargets.slice(0,15),language:state.language,panelLayout:state.panelLayout||null,introHidden:Boolean(state.introHidden),priceControlsOpen:Boolean(state.priceControlsOpen),settings:readSettingsSafe()};
+    const payload={presets:state.presets,logs:state.logs.slice(0,70),cache:state.cache.slice(0,80),selected:state.selected,selectedTargets:state.selectedTargets.slice(0,12),eventTargets:state.eventTargets.slice(0,15),language:state.language,panelLayout:state.panelLayout||null,workspaceTheme:state.workspaceTheme||'classic',themeLayouts:state.themeLayouts||{},introHidden:Boolean(state.introHidden),priceControlsOpen:Boolean(state.priceControlsOpen),settings:readSettingsSafe()};
     try{void Extension.storageSet({[STORAGE]:payload}).catch(()=>{});}catch{}
   }
   function readSettingsSafe(){
     if(!shadow) return {};
-    return Object.fromEntries(['player','itemId','ratingMin','ratingMax','quality','position','club','league','nation','minBid','maxBid','minBin','maxBin','interval','maxSearches','maxBuys','budget','autoBuy','speedPreset','speedMin','speedMax','event','postPurchase','resultsCount','priceSource','pricePlatform','pricePercent','soundEnabled','bidLadder','bidLadderCeiling','searchRoute'].map(k=>[k,$(k)?.type==='checkbox'?$(k).checked:$(k)?.value||'']));
+    return Object.fromEntries(['player','itemId','ratingMin','ratingMax','quality','position','club','league','nation','minBid','maxBid','minBin','maxBin','interval','maxSearches','maxBuys','budget','autoBuy','speedPreset','speedMin','speedMax','event','postPurchase','resultsCount','priceSource','pricePlatform','pricePercent','soundEnabled','bidLadder','bidLadderCeiling','searchRoute','engineMode'].map(k=>[k,$(k)?.type==='checkbox'?$(k).checked:$(k)?.value||'']));
   }
   function input(id){return $(id)?.value.trim()||'';}
   function numeric(id){return Number(input(id)||0);}
@@ -44,9 +50,9 @@
   function updateNativeLabels(){for(const id of ['quality','position','nation','league','club','event']){const el=$('nativeLabel'+id.charAt(0).toUpperCase()+id.slice(1));if(el)el.textContent=input(id)||'— EA';}}
   function uiHTML(){return `
   <main id="shell" dir="${state.language==='ar'?'rtl':'ltr'}" lang="${state.language}" aria-label="CODEX SNIPE dashboard">
-    <header class="top"><div class="brand"><div class="mark" aria-hidden="true">◎</div><div><h1>CODEX <span>SNIPE</span></h1><small>ULTIMATE TEAM · EMBEDDED CONSOLE · v3.9.4</small></div></div>
+    <header class="top"><div class="brand"><div class="mark" aria-hidden="true">◎</div><div><h1>CODEX <span>SNIPE</span></h1><small>ULTIMATE TEAM · EMBEDDED CONSOLE · v3.10.0</small></div></div>
       <div class="head-actions"><label class="lang-label">${tr('language')} <select id="language"><option value="ar" ${state.language==='ar'?'selected':''}>العربية</option><option value="en" ${state.language==='en'?'selected':''}>English</option></select></label><span id="connection" class="pill warn">● EA WEB APP</span><span id="runBadge" class="pill">● STANDBY</span><button type="button" id="close" class="ghost">${tr('back')}</button></div></header>
-    <div class="intro"><div><div class="eyebrow">TRANSFER WORKSPACE / V3.9.4</div><h2>${tr('title')}</h2><p>${tr('subtitle')}</p></div><div class="hint">${tr('hint')}</div></div>
+    <div class="intro"><div><div class="eyebrow">TRANSFER WORKSPACE / V3.10.0</div><h2>${tr('title')}</h2><p>${tr('subtitle')}</p></div><div class="hint">${tr('hint')}</div></div>
     <div class="layout">
       <div class="column control">
         <details class="panel collapsible" open><summary class="panel-head"><h3><em>⌕</em> ${tr('players')}</h3><span class="tiny-tag">PLAYER FINDER</span></summary>
@@ -87,6 +93,7 @@
           </div></details>
         <details class="panel collapsible" open><summary class="panel-head"><h3><em>⌁</em> ${tr('engine')}</h3><span class="tiny-tag">ENGINE CONTROLS</span></summary>
           <div class="panel-body"><div class="form-grid">
+             <label class="field full"><span>${state.language==='ar'?'مود الفحص والسنايب':'Scan / snipe strategy'}</span><select id="engineMode"><option value="codex">CODEX</option><option value="pharaoh">Pharaoh · ${state.language==='ar'?'أول عرض مطابق':'First eligible listing'}</option><option value="deep">Deep · ${state.language==='ar'?'ترتيب مرجعي':'Reference ranking'}</option><option value="enhancer">Enhancer · ${state.language==='ar'?'الأرخص أولًا':'Cheapest first'}</option></select></label><p id="engineModeHelp" class="desc full"></p>
              <label class="field full"><span>${state.language==='ar'?'مسار بحث السوق':'Market search route'}</span><select id="searchRoute"><option value="sdk" selected>${state.language==='ar'?'EA SDK مباشر — MAIN':'Direct EA SDK — MAIN'}</option><option value="screen">${state.language==='ar'?'معالج شاشة EA الأصلية':'Original EA screen handler'}</option></select></label>
              <p class="desc full">${state.language==='ar'?'المباشر يستخدم فلاترك دون تعديل أسعار شاشة اللعبة. مسار الشاشة يستخدم بحث EA الأصلي. قد تعيد EA نفس العروض في الحالتين.':'Direct mode uses your filters without changing screen prices. Screen mode uses the original EA search handler. Both may return the same auctions.'}</p>
              <label class="field full"><span>${tr('speedpreset')}</span><select id="speedPreset"><option value="1-3">1–3 sec</option><option value="2-5" selected>2–5 sec</option><option value="5-8">5–8 sec</option><option value="0.6-5">0.6–5 sec</option><option value="custom">Custom / يدوي</option></select></label>
@@ -98,7 +105,7 @@
              <label class="field full"><span>${state.language==='ar'?'نهاية سلم Max Bid (حتى 15 مليون)':'Max Bid ladder ceiling (up to 15 million)'}</span><input id="bidLadderCeiling" type="number" min="150" max="15000000" step="50" value="200000"></label>
              <p id="bidCycleStatus" class="desc full">${state.language==='ar'?'السلم يرفع Max Bid حتى النهاية المختارة، ثم يبحث بدون حد ويبدأ من جديد. Min Bid ثابت، وسقف الشراء لا يتغير.':'Max Bid rises to the selected ceiling, then runs uncapped and starts again. Min Bid and purchase limits stay fixed.'}</p>
              <label class="field full"><span>${tr('budget')} (Coins)</span><input id="budget" type="number" min="150" value="10000"></label>
-             <label class="field full"><span>${state.language==='ar'?'بعد تأكيد الشراء':'After confirmed purchase'}</span><select id="postPurchase"><option value="leave">${state.language==='ar'?'اتركه كما هو (Unassigned)':'Leave in Unassigned'}</option><option value="club">${state.language==='ar'?'إرساله للنادي':'Send to Club'}</option><option value="transfer">${state.language==='ar'?'إرساله لقائمة الانتقالات':'Send to Transfer List'}</option></select></label><p class="desc full">${state.language==='ar'?'ميزانية الجلسة تجمع كل المشتريات. Max Buy Now حد الكارت الواحد. سرعة من / إلى تحدد الفاصل بين بدايات البحث.':'Session budget caps total spending; Max Buy Now caps one card. Speed from / to sets the interval between search starts.'}</p>
+             <label class="field full"><span>${state.language==='ar'?'بعد تأكيد الشراء':'After confirmed purchase'}</span><select id="postPurchase"><option value="leave">${state.language==='ar'?'اتركه كما هو (Unassigned)':'Leave in Unassigned'}</option><option value="club">${state.language==='ar'?'إرساله للنادي':'Send to Club'}</option><option value="transfer">${state.language==='ar'?'إرساله لقائمة الانتقالات':'Send to Transfer List'}</option></select></label><p class="desc full">${state.language==='ar'?'ميزانية الجلسة تجمع كل المشتريات. Max Buy Now حد الكارت الواحد. سرعة من / إلى تحدد المدى الزمني حسب طريقة المود الموضحة أعلاه.':'Session budget caps total spending; Max Buy Now caps one card. Speed from / to uses the timing rule explained by the selected mode.'}</p>
            </div><p class="desc" style="margin-top:12px">${tr('speedhelp')}</p>
            <label class="checkbox"><input type="checkbox" id="autoBuy"><span><b>${tr('autobuy')}</b><br>${tr('autobuy_note')}</span></label>
            <div class="action-row"><button type="button" id="start" class="primary">${tr('start')}</button><button type="button" id="stop" class="danger" disabled>${tr('stop')}</button><button type="button" id="savePreset" class="secondary">${tr('preset_save')}</button></div>
@@ -124,7 +131,7 @@
         <details class="panel collapsible" id="technicalPanel"><summary class="panel-head"><h3><em>▤</em> ${tr('diagnosticlogs')}</h3><span class="tiny-tag">TECHNICAL</span></summary><div class="panel-body"><div class="action-row"><button id="copyTechnical" class="secondary" type="button">${tr('copysys')}</button><button id="exportTechnical" class="ghost" type="button">${tr('txtsys')}</button></div><pre id="technicalLogs" class="technical-logs">${tr('empty')}</pre></div></details>
         <details class="panel collapsible"><summary class="panel-head"><h3><em>ⓘ</em> ${tr('datalink')}</h3><span class="tiny-tag">STATUS</span></summary><div class="panel-body"><p class="desc">${tr('datahelp')}</p><div id="dataHealth" class="native-status">${tr('empty')}</div></div></details>
       </div>
-    </div><footer class="footer"><span>CODEX SNIPE v3.9.4 · Unofficial · Independent</span><span>SEARCH • INSPECT • MONITOR</span></footer>
+    </div><footer class="footer"><span>CODEX SNIPE v3.10.0 · Unofficial · Independent</span><span>SEARCH • INSPECT • MONITOR</span></footer>
   </main>`;}
   function organizeWorkspace(){
     $('runDock')?.remove();state.dockObserver?.disconnect();
@@ -153,6 +160,8 @@
     const scrollTop=document.createElement('button');scrollTop.id='scrollTop';scrollTop.type='button';scrollTop.className='ghost scroll-top';scrollTop.textContent=ar?'↑ أعلى':'↑ Top';scrollTop.hidden=true;$('shell').append(scrollTop);
     applyIntroVisibility();
     const layoutButton=document.createElement('button');layoutButton.id='editLayout';layoutButton.className='ghost';layoutButton.textContent=ar?'ترتيب اللوحات':'Arrange panels';layoutButton.type='button';header.prepend(layoutButton);
+    const themeLabel=document.createElement('label');themeLabel.className='workspace-theme lang-label';themeLabel.append(document.createTextNode(ar?'التصميم ':'Design '));const themeSelect=document.createElement('select');themeSelect.id='workspaceTheme';themeSelect.setAttribute('aria-label',ar?'تصميم وترتيب الواجهة':'Workspace theme and layout');for(const [value,title] of [['classic','Classic · '+(ar?'الأصلي':'Original')],['cockpit','Cockpit · '+(ar?'ثلاثة أعمدة':'Three columns')],['aurora','Aurora · '+(ar?'تركيز النتائج':'Market focus')]])themeSelect.append(new Option(title,value));themeLabel.append(themeSelect);layoutButton.insertAdjacentElement('afterend',themeLabel);
+    const center=document.createElement('div');center.className='column center';center.hidden=true;shadow.querySelector('.layout').insertBefore(center,shadow.querySelector('.column.right'));
     const reset=document.createElement('button');reset.id='resetLayout';reset.className='ghost layout-reset';reset.textContent=ar?'الترتيب الافتراضي':'Reset layout';reset.type='button';header.prepend(reset);
     const active=document.createElement('div');active.className='active-target-strip';const label=document.createElement('span');label.textContent=ar?'اللاعب النشط':'Active player';const value=document.createElement('b');value.id='activeTargetName';value.textContent='—';active.append(label,value);$('sessionLabel').closest('.panel').querySelector('.panel-head').insertAdjacentElement('afterend',active);
     $('toasts')?.remove();const feedback=document.createElement('div');feedback.id='toasts';feedback.className='toast-stack';feedback.setAttribute('aria-live','polite');shadow.append(feedback);
@@ -173,19 +182,31 @@
     const resizeDock=()=>{portal.style.setProperty('--run-dock-height',Math.ceil(dock.getBoundingClientRect().height)+'px');positionNativePicker();};
     if(typeof ResizeObserver==='function'){state.dockObserver=new ResizeObserver(resizeDock);state.dockObserver.observe(dock);}resizeDock();
     for(const b of shadow.querySelectorAll('[data-native-picker]')){b.setAttribute('aria-expanded','false');b.setAttribute('aria-controls','nativePickerArea');}
-    restorePanelLayout();
+    applyWorkspaceTheme(state.workspaceTheme||'classic');
   }
   function applyIntroVisibility(){
     const intro=shadow?.querySelector('.intro');if(intro)intro.hidden=Boolean(state.introHidden);
     const b=$('toggleIntro');if(b){b.textContent=state.language==='ar'?(state.introHidden?'إظهار المقدمة':'إخفاء المقدمة'):(state.introHidden?'Show intro':'Hide intro');b.setAttribute('aria-expanded',String(!state.introHidden));}
   }
   function panelNodes(){return new Map([...shadow.querySelectorAll('[data-panel-key]')].map(p=>[p.dataset.panelKey,p]));}
-  function capturePanelLayout(){state.panelLayout=Object.fromEntries(['control','right'].map(column=>[column,[...shadow.querySelector('.column.'+column).children].filter(p=>p.dataset.panelKey).map(p=>p.dataset.panelKey)]));}
+  function capturePanelLayout(){
+    const layout=Object.fromEntries(['control','center','right'].map(column=>[column,[...shadow.querySelector('.column.'+column).children].filter(p=>p.dataset.panelKey).map(p=>p.dataset.panelKey)]));
+    const theme=state.workspaceTheme||'classic';state.themeLayouts??={};state.themeLayouts[theme]=layout;if(theme==='classic')state.panelLayout=layout;
+  }
   function restorePanelLayout(){
-    if(!state.panelLayout)return;const panels=panelNodes(),used=new Set();
-    for(const column of ['control','right'])for(const key of Array.isArray(state.panelLayout[column])?state.panelLayout[column]:[]){if(used.has(key)||!panels.has(key))continue;used.add(key);shadow.querySelector('.column.'+column).append(panels.get(key));}
+    const theme=state.workspaceTheme||'classic',defaults=THEME_LAYOUTS[theme],saved=state.themeLayouts?.[theme]||(theme==='classic'?state.panelLayout:null),panels=panelNodes(),used=new Set();
+    for(const column of ['control','center','right']){
+      if(column==='center'&&theme==='classic')continue;
+      for(const key of Array.isArray(saved?.[column])?saved[column]:[]){if(used.has(key)||!panels.has(key))continue;used.add(key);shadow.querySelector('.column.'+column).append(panels.get(key));}
+    }
+    for(const [column,keys] of Object.entries(defaults))for(const key of keys){if(used.has(key)||!panels.has(key))continue;used.add(key);shadow.querySelector('.column.'+column).append(panels.get(key));}
+  }
+  function applyWorkspaceTheme(value){
+    const theme=Object.hasOwn(THEME_LAYOUTS,value)?value:'classic';closeNativePicker();state.workspaceTheme=theme;
+    portal.dataset.theme=theme;$('shell').dataset.theme=theme;$('workspaceTheme').value=theme;shadow.querySelector('.column.center').hidden=theme==='classic';restorePanelLayout();positionNativePicker();
   }
   function bindWorkspace(){
+    $('workspaceTheme').addEventListener('change',()=>{capturePanelLayout();applyWorkspaceTheme($('workspaceTheme').value);save();});
     $('priceControls').addEventListener('toggle',()=>{state.priceControlsOpen=$('priceControls').open;save();});
     $('dockScan').addEventListener('click',scanMarket);
     $('runDock').addEventListener('pointerdown',()=>closeNativePicker());
@@ -199,12 +220,12 @@
     $('scrollTop').addEventListener('click',()=>{const panel=$('marketPanel');(panel.classList.contains('market-full')?panel:$('shell')).scrollTo({top:0,behavior:'smooth'});});
     $('addPlayer').addEventListener('click',()=>{if(state.running||state.starting||state.scanning)return;state.selectionCollapsed=false;$('playerSearchDrawer').hidden=false;$('player').value='';renderPlayers([],state.language==='ar'?'اكتب اسم لاعب لإضافته':'Search to add another player');$('player').focus();});
     $('editLayout').addEventListener('click',()=>{$('shell').classList.toggle('arranging');});
-    $('resetLayout').addEventListener('click',()=>{const panels=panelNodes();for(const [col,keys] of Object.entries({control:['players','engine'],right:['stats','market','logs','connection','compat','technical','data']}))for(const key of keys)shadow.querySelector('.column.'+col).append(panels.get(key));capturePanelLayout();save();});
+    $('resetLayout').addEventListener('click',()=>{const theme=state.workspaceTheme||'classic';if(state.themeLayouts)delete state.themeLayouts[theme];if(theme==='classic')state.panelLayout=null;restorePanelLayout();capturePanelLayout();save();});
     for(const b of shadow.querySelectorAll('.panel-move'))b.addEventListener('click',event=>{
       event.preventDefault();event.stopPropagation();const panel=b.closest('[data-panel-key]'),parent=panel.parentElement;
       if(b.dataset.move==='up'&&panel.previousElementSibling)parent.insertBefore(panel,panel.previousElementSibling);
       if(b.dataset.move==='down'&&panel.nextElementSibling)panel.nextElementSibling.insertAdjacentElement('afterend',panel);
-      if(b.dataset.move==='column')shadow.querySelector('.column.'+(parent.classList.contains('control')?'right':'control')).append(panel);
+      if(b.dataset.move==='column'){const columns=['control','center','right'].map(name=>shadow.querySelector('.column.'+name)).filter(node=>!node.hidden);columns[(columns.indexOf(parent)+1)%columns.length].append(panel);}
       capturePanelLayout();save();
     });
     $('soundEnabled').addEventListener('change',()=>{if($('soundEnabled').checked)unlockAudio();save();});
@@ -363,7 +384,7 @@
       }
     }
     const phase=active?(state.phase||'searching'):'stopped';
-    const labels=state.language==='ar'?{searching:'بحث EA',buying:'شراء EA',waiting:'انتظار الجولة',stopped:'متوقف'}:{searching:'EA search',buying:'EA purchase',waiting:'Next search',stopped:'Stopped'};
+    const labels=state.language==='ar'?{searching:'بحث EA',buying:'شراء EA',buydelay:'انتظار محاولة الشراء',waiting:'انتظار الجولة',stopped:'متوقف'}:{searching:'EA search',buying:'EA purchase',buydelay:'Pre-buy delay',waiting:'Next search',stopped:'Stopped'};
     if($('cyclePhase'))$('cyclePhase').textContent=labels[phase]||phase;
     if($('speedValue'))$('speedValue').textContent=active?(phase==='waiting'?(metrics.remaining/1000).toFixed(1)+'s':((now-(state.phaseStarted||now))/1000).toFixed(1)+'s'):'—';
     const activeProgress=phase==='waiting'?metrics.progress:((now-(state.phaseStarted||now))%1400)/1400;
@@ -390,12 +411,13 @@
     if($('saveFilterTop'))$('saveFilterTop').disabled=state.running||state.starting||state.scanning||state.editionUpdating;
     if($('addPlayer'))$('addPlayer').disabled=state.running||state.starting||state.scanning||state.editionUpdating;
     for(const b of shadow.querySelectorAll('.target-card-select,.target-remove'))b.disabled=state.running||state.starting||state.scanning||state.editionUpdating;
+    updateEngineModeHelp();
     $('start').disabled=state.running||state.starting||state.scanning||state.editionUpdating||Boolean(state.pickerPending);$('stop').disabled=!(state.running||state.starting||state.scanning);
     if($('dockStatus'))$('dockStatus').textContent=(state.running||state.scanning?(state.selected?.name||'EA Market')+' · '+($('cyclePhase')?.textContent||''):state.status);
     if($('scanMarket')){$('scanMarket').disabled=state.running||state.starting||state.editionUpdating||Boolean(state.pickerPending);$('scanMarket').textContent=state.scanning?(state.scanQueued?(state.language==='ar'?'تحديث جديد في الانتظار':'Refresh queued'):(state.language==='ar'?'جارٍ الفحص — اضغط لطلب تحديث':'Scanning — click to refresh again')):(state.language==='ar'?'فحص السوق — بحث جديد':'Scan market — fresh search');}
     if($('dockScan')){$('dockScan').disabled=$('scanMarket').disabled;$('dockScan').textContent=state.scanning?(state.scanQueued?(state.language==='ar'?'تحديث منتظر':'Refresh queued'):(state.language==='ar'?'طلب تحديث':'Request refresh')):(state.language==='ar'?'فحص السوق':'Scan market');}
-    for(const id of ['player','itemId','postPurchase','resultsCount','priceSource','pricePlatform','priceEdition','pricePercent','bidLadder','bidLadderCeiling','searchRoute','loadEditions','refreshQuote','autoBuy','budget','maxBuys','maxSearches','maxBin','minBin','minBid','maxBid','ratingMin','ratingMax'])if($(id))$(id).disabled=state.running||state.starting||state.scanning||state.editionUpdating;
-    for(const button of shadow.querySelectorAll('[data-native-picker]'))button.disabled=state.running||state.starting||state.scanning||state.editionUpdating;
+    for(const id of ['engineMode','player','itemId','postPurchase','resultsCount','priceSource','pricePlatform','priceEdition','pricePercent','bidLadder','bidLadderCeiling','searchRoute','engineMode','loadEditions','refreshQuote','autoBuy','budget','maxBuys','maxSearches','maxBin','minBin','minBid','maxBid','ratingMin','ratingMax'])if($(id))$(id).disabled=state.running||state.starting||state.scanning||state.editionUpdating;
+    for(const button of shadow.querySelectorAll('[data-native-picker]'))button.disabled=state.running||state.starting||state.scanning||state.editionUpdating||Boolean(state.filterSelecting);
     updateClubAvailability();
     $('runBadge').innerHTML=state.running?'<i></i> LIVE SCANNING':'<i></i> STANDBY';$('runBadge').className='pill'+(state.running?' green':'');
     $('sessionLabel').textContent=state.running?'ACTIVE SESSION':'SESSION INACTIVE';$('sessionStatus').textContent=state.running?'● SCANNING':`● ${state.status}`;
@@ -595,8 +617,8 @@
   function hasSelectedLeague(){return state.pageMode?Number(state.pageSnapshot?.selections?.league?.id)>0:Boolean(state.domLeagueSelected);}
   function updateClubAvailability(){
     const button=shadow.querySelector('[data-native-picker="club"]');if(!button)return;
-    const league=hasSelectedLeague(),locked=state.pageMode&&state.pageSnapshot?.selections?.club?.enabled===false;
-    button.disabled=state.running||state.starting||state.scanning||state.editionUpdating||!league||locked;
+    const league=hasSelectedLeague(),locked=state.pageMode&&state.pageSnapshot?.selections?.club?.enabled!==true;
+    button.disabled=state.running||state.starting||state.scanning||state.editionUpdating||state.filterSelecting||!league||locked;
     const hint=!league?(state.language==='ar'?'اختر دوريًا أولًا لعرض أنديته':'Select a league to see its clubs'):locked?(state.language==='ar'?'EA قفلت فلتر النادي للاختيار الحالي':'EA locked Club for the current selection'):'';
     button.title=hint;if($('clubHint'))$('clubHint').textContent=hint;
     if(!league&&state.pickerVisible&&state.pickerKind==='club')closeNativePicker();
@@ -739,11 +761,11 @@
         const detail=document.createElement('small');detail.textContent=[opt.id!=null?'EA ID '+opt.id:'',opt.leagueLabel||''].filter(Boolean).join(' · ');
         info.append(text,detail);button.append(info);
         button.addEventListener('click',async()=>{
-          button.disabled=true;let result;
-          try{result=state.pageMode?await Page.request('choose',{token:found.token,index:opt.index}):Native.chooseOption(opt.index);}
-          catch(e){status.textContent=e.message;button.disabled=false;return;}
+          button.disabled=true;let result;const previousCriteria=state.pageSnapshot?.criteriaKey;
+          try{state.filterSelecting=true;const selection=state.pageMode?Page.request('choose',{token:found.token,index:opt.index}):Promise.resolve(Native.chooseOption(opt.index));state.pickerPending=selection;refresh();try{result=await selection;}finally{if(state.pickerPending===selection)state.pickerPending=null;state.filterSelecting=false;refresh();}}
+          catch(e){state.filterSelecting=false;refresh();status.textContent=e.message;button.disabled=false;return;}
           if(kind==='event'&&state.nativeChoices.event!==result.label){state.priceQuote=null;state.lastRisk=null;if($('quoteBox'))$('quoteBox').textContent='—';$('itemId').value='';$('priceEdition').value='';}
-          if(result.snapshot)mergePageSnapshot(result.snapshot);
+          if(result.snapshot){mergePageSnapshot(result.snapshot);if(previousCriteria&&previousCriteria!==result.snapshot.criteriaKey)clearMarket(state.language==='ar'?'تغيّرت الفلاتر؛ نفّذ فحص السوق لعرض نتائجها.':'Filters changed; scan the market for matching results.');}
           if(!result.ok){status.textContent='EA changed the options: reopen the picker.';button.disabled=false;return;}
           if(kind==='league'&&!result.snapshot){state.domLeagueSelected=!/^(any(?: league)?|all|league|الدوري|دوري|الكل|أي(?: دوري)?)$/i.test(String(result.label).trim());$('club').value='';state.nativeChoices.club='';}
           const inputEl=$(kind);if(inputEl)inputEl.value=result.label;
@@ -773,11 +795,16 @@
     captureVisibleLowestQuiet();
   }
   function acceptMarket(response){
+    const mode=response.engineMode||engineMode(),rows=Modes.order(response.items,mode,state.priceQuote);
+    response={...response,engineMode:mode,uiDuplicatesRemoved:response.items.length-rows.length,items:rows,count:rows.length};
     state.nativeItems=response.items;state.nativeSearchId=response.searchId;state.marketError=null;state.lastMarket=response;
     for(const target of state.selectedTargets){const item=response.items.find(x=>x.playerId===target.playerId&&x.position&&(target.itemId?x.itemId===target.itemId:x.itemId===target.playerId));if(item)target.position=item.position;}renderTargets();
     displayNativeOffers();captureVisibleLowestQuiet();
-    const ar=state.language==='ar';
-    $('marketResponse').textContent=(response.transport==='ea-sdk-direct'?'EA SDK':(ar?'رد EA':'EA response'))+' #'+response.searchId+' · '+new Date(response.receivedAt).toLocaleTimeString()+' · '+response.count+'/'+response.requested+' · '+response.pages+(ar?' صفحة':' page(s)')+(response.identicalToPrevious?(ar?' · نفس العروض في الرد الجديد':' · Same listings returned again'):'')+(Number.isInteger(response.newTrades)?(ar?' · أرقام جديدة مقارنة بآخر رد: ':' · New Trade IDs: ')+response.newTrades:'')+(response.moreAvailable?(ar?' · توجد نتائج إضافية خارج العدد المختار':' · More results outside the chosen count'):'')+(response.transport==='ea-sdk-direct'?' · SDK '+(response.sdkStatus??'—')+' · '+response.durationMs+'ms':'');
+    renderMarketCaption(response);
+  }
+  function renderMarketCaption(response){
+    const ar=state.language==='ar',mode=response.engineMode||engineMode();
+    $('marketResponse').textContent=Modes.get(mode).label+' · '+(response.transport==='ea-sdk-direct'?'EA SDK':(ar?'رد EA':'EA response'))+' #'+response.searchId+' · '+new Date(response.receivedAt).toLocaleTimeString()+' · '+response.count+'/'+response.requested+' · '+response.pages+(ar?' صفحة':' page(s)')+(response.identicalToPrevious?(ar?' · نفس العروض في الرد الجديد':' · Same listings returned again'):'')+(Number.isInteger(response.newTrades)?(ar?' · أرقام جديدة مقارنة بآخر رد: ':' · New Trade IDs: ')+response.newTrades:'')+(response.moreAvailable?(ar?' · توجد نتائج إضافية خارج العدد المختار':' · More results outside the chosen count'):'')+(response.transport==='ea-sdk-direct'?' · SDK '+(response.sdkStatus??'—')+' · '+response.durationMs+'ms':'')+(response.firstPageOnly?(ar?' · صفحة السنايب الأولى فقط':' · First snipe page only'):'');
   }
   async function loadPriceEditions(){
     if(state.running||state.starting||state.scanning)return;
@@ -833,7 +860,7 @@
       const applied=await applyNative({cycle:true});if(!applied.ok)throw Error(applied.unmapped.join(', '));
       if(token!==state.token)return;
       logSearchPrices(applied,'scan');
-      const response=await Page.request('search',{criteriaKey:state.pageSnapshot.criteriaKey,maxBin:state.effectiveMaxPrice||numeric('maxBin'),playerId:state.pageSnapshot.player?.id||null,limit:resultLimit(),route:input('searchRoute')||'sdk',planId:state.searchPlan?.id});
+      const response=await Page.request('search',{criteriaKey:state.pageSnapshot.criteriaKey,maxBin:state.effectiveMaxPrice||numeric('maxBin'),playerId:state.pageSnapshot.player?.id||null,limit:resultLimit(),route:input('searchRoute')||'sdk',planId:state.searchPlan?.id,engineMode:engineMode(),purpose:'scan'});
       if(token!==state.token)return;
       state.lastCycleMs=performance.now()-state.cycleStart;state.searches++;state.manualTargetIndex=(state.manualTargetIndex||0)+1;acceptMarket(response);
       addLog('فحص EA جديد #'+response.searchId+' · '+response.count+' عرض · '+response.pages+' صفحة'+(response.identicalToPrevious?' · أعادت EA نفس العروض':''),'success');
@@ -861,6 +888,7 @@
         info.append(quote,title,detail,trade);
         const price=document.createElement('div');price.className='market-card-price';price.textContent=item.price>0?fmt(item.price)+' Coins':(state.language==='ar'?'لا يوجد Buy Now':'No Buy Now');
         const tag=document.createElement('small');tag.textContent=!(item.price>0)?(state.language==='ar'?'مزايدة فقط':'Bid only'):item.price===minimum?(state.language==='ar'?'أقل سعر مستلم':'Lowest received'):'Buy Now';price.append(tag);
+        const history=document.createElement('small');history.className='trade-history';history.dataset.seen=String(item.seenInPrevious===true);history.textContent=item.seenInPrevious?(state.language==='ar'?'نفس Trade ID من الرد السابق':'Same Trade ID as previous response'):(state.language==='ar'?'لم يظهر في الرد السابق':'Not seen in previous response');info.append(history);
         node.append(portrait,info,price);target.append(node);
       }
       return;
@@ -953,7 +981,7 @@
     checks[checks.length-1].status=dialog()?'pass':'unknown';
     add('CAPTCHA/security challenge',!blocked(),'Session must stop if protection appears',false);
     const counters={pass:checks.filter(x=>x.status==='pass').length,fail:checks.filter(x=>x.status==='fail').length,unknown:checks.filter(x=>x.status==='unknown').length};
-    const report={kind:'CODEX_SNIPE_COMPATIBILITY',version:'3.9.4',at:new Date().toISOString(),page:location.pathname,marketViewDetected:hasMarket,searchButtonDetected:hasSearch,counts:counters,checks,nativeFunctions:state.pageMode?state.pageSnapshot:null};
+    const report={kind:'CODEX_SNIPE_COMPATIBILITY',version:'3.10.0',at:new Date().toISOString(),page:location.pathname,marketViewDetected:hasMarket,searchButtonDetected:hasSearch,counts:counters,checks,nativeFunctions:state.pageMode?state.pageSnapshot:null};
     state.lastAudit=report;
     state.auditLog.unshift({at:report.at,summary:`Pass ${counters.pass}, Fail ${counters.fail}, Need view ${counters.unknown}`,marketView:hasMarket});
     state.auditLog=state.auditLog.slice(0,60);
@@ -967,7 +995,7 @@
   }
   function technicalAsText(){
     const lines=state.auditLog.map(x=>`[${x.at}] ${x.summary} | marketView=${x.marketView}`);
-    return ['CODEX SNIPE TECHNICAL LOG',...lines,'','Last native option audit:',JSON.stringify(state.lastPickerAudit||null),'','Extension runtime:',JSON.stringify({uiVersion:'3.9.4',...Extension?.status(),helpers:{trade:typeof window.CodexTradeCore?.pace,prices:typeof window.CodexPrices?.cap,native:typeof window.GPTPageClient?.request}}),'','Clock diagnostics:',JSON.stringify({fallback:state.clockFallback===true,tradeHelper:typeof window.CodexTradeCore?.pace,rotor:state.rotorAnimation?.playState||null}),'','Last prepared SDK query:',JSON.stringify(state.searchPlan||null),'','Last bid ladder:',JSON.stringify(state.lastBidCycle||null),'','Last price-provider status:',JSON.stringify(state.lastPriceStatus||null),'','Last confirmed market response:',JSON.stringify(state.lastMarket?{searchId:state.lastMarket.searchId,requested:state.lastMarket.requested,count:state.lastMarket.count,pages:state.lastMarket.pages,receivedAt:state.lastMarket.receivedAt,localCacheCleared:state.lastMarket.localCacheCleared,freshEvent:state.lastMarket.freshEvent,identicalToPrevious:state.lastMarket.identicalToPrevious,transport:state.lastMarket.transport,nativePrices:state.lastMarket.nativePrices,sdkStatus:state.lastMarket.sdkStatus,newTrades:state.lastMarket.newTrades}:null),'','Recent application events:',...state.logs.slice(0,40).map(x=>`[${x.at}] ${x.level} ${x.message}`)].join('\n');
+    return ['CODEX SNIPE TECHNICAL LOG',...lines,'','Last native option audit:',JSON.stringify(state.lastPickerAudit||null),'','Extension runtime:',JSON.stringify({uiVersion:'3.10.0',...Extension?.status(),helpers:{trade:typeof window.CodexTradeCore?.pace,prices:typeof window.CodexPrices?.cap,native:typeof window.GPTPageClient?.request}}),'','Clock diagnostics:',JSON.stringify({fallback:state.clockFallback===true,tradeHelper:typeof window.CodexTradeCore?.pace,rotor:state.rotorAnimation?.playState||null}),'','Last prepared SDK query:',JSON.stringify(state.searchPlan||null),'','Engine strategy:',engineMode(),'','Last bid ladder:',JSON.stringify(state.lastBidCycle||null),'','Last price-provider status:',JSON.stringify(state.lastPriceStatus||null),'','Last confirmed market response:',JSON.stringify(state.lastMarket?{searchId:state.lastMarket.searchId,requested:state.lastMarket.requested,count:state.lastMarket.count,pages:state.lastMarket.pages,receivedAt:state.lastMarket.receivedAt,localCacheCleared:state.lastMarket.localCacheCleared,freshEvent:state.lastMarket.freshEvent,identicalToPrevious:state.lastMarket.identicalToPrevious,transport:state.lastMarket.transport,nativePrices:state.lastMarket.nativePrices,sdkStatus:state.lastMarket.sdkStatus,newTrades:state.lastMarket.newTrades}:null),'','Recent application events:',...state.logs.slice(0,40).map(x=>`[${x.at}] ${x.level} ${x.message}`)].join('\n');
   }
   function renderDiagnostics(){
     const a=state.lastAudit;if(!a)return;
@@ -1007,7 +1035,24 @@
     const url=URL.createObjectURL(blob);const anchor=document.createElement('a');anchor.href=url;anchor.download='CODEX_SNIPE_EA_DOM_Map.json';anchor.click();setTimeout(()=>URL.revokeObjectURL(url),2500);
     addLog('تم تصدير خريطة عناصر الصفحة بدون قيم الحقول أو رموز تسجيل الدخول.','success');
   }
+  function engineMode(){return input('engineMode')||'codex';}
+  function updateEngineModeHelp(){
+    const ar=state.language==='ar',mode=engineMode();
+    const descriptions=ar?{
+      codex:'CODEX: العدد المختار وترتيب EA، والفاصل محسوب بين بدايات البحث.',
+      pharaoh:'فرعون: في السنايب صفحة EA الأولى ومحاولة أول عرض مطابق، بلا تأخير شراء إضافي. الفاصل بعد انتهاء الدورة.',
+      deep:'ديب: صفحة EA الأولى في السنايب، وترتيب حسب العائد المرجعي المتاح (وبدونه الأقل سعرًا)، ثم انتظار 180–320ms قبل الشراء. الفاصل بعد الدورة.',
+      enhancer:'هانسر: يجمع العدد المختار ويرتب Buy Now من الأرخص، ثم الشراء والنقل حسب اختيارك. الفاصل بعد الدورة.'
+    }:{
+      codex:'CODEX: selected count and EA order; interval measured between search starts.',
+      pharaoh:'Pharaoh: first native page for sniping, first eligible listing, no extra purchase delay. Interval starts after the cycle.',
+      deep:'Deep: first native page for sniping; available reference-return ranking, otherwise lowest price; 180–320ms pre-buy delay. Interval follows the cycle.',
+      enhancer:'Enhancer: selected count, cheapest Buy Now first, then your chosen confirmed-item destination. Interval follows the cycle.'
+    };
+    if($('engineModeHelp'))$('engineModeHelp').textContent=descriptions[mode]+(ar?' الفحص اليدوي في كل المودات يجمع العدد المختار ولا يشتري. المودات مستوحاة من الأدوات، وتحتفظ بحدود الجلسة وتأكيد EA.':' Manual scans always respect your count and never buy. Inspired profiles retain the session limits and EA confirmation.');
+  }
   async function applyNative({cycle=false}={}){
+    if(engineMode()!=='codex'&&(!state.pageMode||input('searchRoute')!=='sdk'||state.pageSnapshot?.capabilities?.engineModes!==1))throw Error('المود المختار يحتاج EA SDK وجسر النسخة الجديدة؛ حدّث صفحة EA بالكامل.');
     if(state.pageMode){
       try{
         const maxBin=state.effectiveMaxPrice||numeric('maxBin'),base={minBid:numeric('minBid'),maxBid:numeric('maxBid'),minBin:numeric('minBin'),maxBin};
@@ -1059,7 +1104,7 @@
     const mode=ladder?(ar?'سلم Max Bid · خطوة ':'Max Bid ladder · step ')+(ladder.step+1)+'/'+ladder.cycleLength:(ar?'مزايدة ثابتة — السلم متوقف':'Fixed bids — ladder off');
     const maximum=prices.maxBid===0?(ar?'بدون حد (0)':'Uncapped (0)'):fmt(prices.maxBid);
     const target=state.selected?.name||state.pageSnapshot?.player?.name||(ar?'الفلاتر الحالية':'Current filters');
-    addLog((kind==='scan'?(ar?'إرسال فحص السوق':'Dispatch market scan'):(ar?'إرسال بحث السنايب':'Dispatch snipe search'))+' · '+target+' · '+mode+' · Min Bid: '+fmt(prices.minBid)+' · Max Bid: '+maximum+' · Min Buy Now: '+fmt(prices.minBin)+' · Max Buy Now: '+fmt(prices.maxBin),'info');
+    addLog((kind==='scan'?(ar?'إرسال فحص السوق':'Dispatch market scan'):(ar?'إرسال بحث السنايب':'Dispatch snipe search'))+' · '+target+' · '+Modes.get(engineMode()).label+' · '+mode+' · Min Bid: '+fmt(prices.minBid)+' · Max Bid: '+maximum+' · Min Buy Now: '+fmt(prices.minBin)+' · Max Buy Now: '+fmt(prices.maxBin),'info');
   }
   function blocked(){return [...document.querySelectorAll('.ea-dialog-view,.ut-dialog-container,.captcha,[id*="captcha"],iframe[src*="captcha"]')].filter(visible).some(e=>/captcha|verify|robot|unusual|too many|suspicious|blocked|security|روبوت|تحقق|حظر/.test((e.textContent||e.id||e.className||'').toString().toLowerCase()));}
   function resultRows(){return [...document.querySelectorAll('.listFUTItem.has-auction-data,.SearchResults .listFUTItem')].filter(visible);}
@@ -1141,7 +1186,11 @@
         state.matches++;addLog('EA confirmed matching listing: '+(item.name||item.playerId)+' · '+fmt(item.price)+' Coins','success');
         stop('EA native match found — alert mode.');return;
       }
-      state.matches++;phase('buying');
+      state.matches++;
+      const delay=Modes.delay(o.engineMode||'codex');
+      if(delay){phase('buydelay');const until=performance.now()+delay;while(state.running&&token===state.token&&performance.now()<until)await nap(Math.min(25,until-performance.now()));}
+      if(!state.running||token!==state.token)return;
+      phase('buying');
       const args={sessionId:o.sessionId,searchId:state.nativeSearchId,tradeId:item.tradeId,instanceId:item.instanceId,expectedPrice:item.price};
       let response=await Page.request('buy',args);
       if(response.status==='approval-required'){
@@ -1188,14 +1237,14 @@
         if(!state.running||token!==state.token)return;
         logSearchPrices(applied,'snipe');
         refresh();
-        const response=await Page.request('search',{maxBin:o.maxPrice,criteriaKey:o.criteriaKey,playerId:state.selected?Number(state.selected.playerId||state.selected.itemId):null,limit:resultLimit(),route:input('searchRoute')||'sdk',planId:state.searchPlan?.id});
+        const response=await Page.request('search',{maxBin:o.maxPrice,criteriaKey:o.criteriaKey,playerId:state.selected?Number(state.selected.playerId||state.selected.itemId):null,limit:resultLimit(),route:input('searchRoute')||'sdk',planId:state.searchPlan?.id,engineMode:o.engineMode,purpose:'snipe'});
         if(!state.running||token!==state.token)return;
         state.searches++;acceptMarket(response);
         addLog((response.transport||'EA native')+' search #'+state.searches+' · confirmed response: '+response.count+' listing(s)','success');
         await checkNativeOffers(o,token);
         state.lastCycleMs=Date.now()-started;
         captureVisibleLowestQuiet();refresh();
-        if(state.running&&state.bought<o.maxBuys&&state.searches<o.maxSearches)await waitCycle(token);
+        if(state.running&&state.bought<o.maxBuys&&state.searches<o.maxSearches){if(Modes.get(o.engineMode||'codex').waitFrom==='end')state.cycleStart=performance.now();await waitCycle(token);}
         continue;
       }
       let b=findNativeSearchButton();if(!b){const back=findBackButton();if(back){back.click();await nap(450);b=findNativeSearchButton();}}
@@ -1217,7 +1266,7 @@
     unlockAudio();stashActiveTarget();const targets=state.selectedTargets.map(x=>JSON.parse(JSON.stringify(x)));
     if(targets.length>1){if(input('priceSource')!=='manual'&&targets.some(x=>!x.itemId))throw Error('اختر إصدار كارت لكل لاعب قبل استخدام التسعير الخارجي.');await activateTarget(targets[0]);if(startToken!==state.token)return;}
     if(!Core){addLog('مكتبة التحقق من الفلاتر غير متاحة','error');return;}
-    let o;try{await preparePrice();o=options();o.maxPrice=state.effectiveMaxPrice||o.maxPrice;o.targets=targets;}catch(e){clearMarket(e.message);addLog(e.message,'error');return;}
+    let o;try{await preparePrice();o=options();o.maxPrice=state.effectiveMaxPrice||o.maxPrice;o.targets=targets;o.engineMode=engineMode();}catch(e){clearMarket(e.message);addLog(e.message,'error');return;}
     if(startToken!==state.token)return;
     if(Page && !await connectEA())return;
     if(startToken!==state.token)return;
@@ -1248,7 +1297,7 @@
     if(blocked()){addLog('رسالة حماية ظاهرة؛ لن يبدأ المحرك.','error');return;}
     if(o.autoBuy&&!state.pageMode){addLog('Auto Buy يحتاج جسر MAIN ودالة شراء EA الأصلية.','error');return;}
     if(state.pageMode){
-      const native=await Page.request('beginSession',{criteriaKey:o.criteriaKey,route:input('searchRoute')||'sdk',planId:state.searchPlan?.id,maxPrice:o.maxPrice,hardMaxPrice:numeric('maxBin'),maxSpend:o.maxSpend,maxBuys:o.maxBuys,autoBuy:o.autoBuy,itemId:o.itemId,minRating:o.minRating,maxRating:o.maxRating,targets:targets.length>1?targets.map(x=>({key:x.key,playerId:x.playerId,itemId:Number(x.itemId)||null,rarities:x.rarities||[]})):[],postPurchase:input('postPurchase'),referencePrice:state.priceQuote?.price||null,referenceQuote:state.priceQuote||null});
+      const native=await Page.request('beginSession',{criteriaKey:o.criteriaKey,engineMode:o.engineMode,route:input('searchRoute')||'sdk',planId:state.searchPlan?.id,maxPrice:o.maxPrice,hardMaxPrice:numeric('maxBin'),maxSpend:o.maxSpend,maxBuys:o.maxBuys,autoBuy:o.autoBuy,itemId:o.itemId,minRating:o.minRating,maxRating:o.maxRating,targets:targets.length>1?targets.map(x=>({key:x.key,playerId:x.playerId,itemId:Number(x.itemId)||null,rarities:x.rarities||[]})):[],postPurchase:input('postPurchase'),referencePrice:state.priceQuote?.price||null,referenceQuote:state.priceQuote||null});
       o.sessionId=native.sessionId;state.activeSessionId=native.sessionId;
     }
     if(startToken!==state.token)return;
@@ -1298,11 +1347,12 @@
     state.language=lang;
     const node=shadow.querySelector('#shell'),wrapper=document.createElement('div');wrapper.innerHTML=uiHTML();node.replaceWith(wrapper.firstElementChild);
     organizeWorkspace();for(const d of shadow.querySelectorAll('details[id],details[data-panel-key]')){const key=d.dataset.panelKey||d.id;if(opens.has(key))d.open=opens.get(key);}
-    fillSettings(settings);populatePresets();updateSpeedControls();renderPlayers(state.players);renderTargets();renderEvents();updateDatalists();renderLogs();renderDiagnostics();bindUI();displayNativeOffers();captureVisibleLowestQuiet();refresh();save();
+    fillSettings(settings);populatePresets();updateSpeedControls();renderPlayers(state.players);renderTargets();renderEvents();updateDatalists();renderLogs();renderDiagnostics();bindUI();displayNativeOffers();if(state.lastMarket)renderMarketCaption(state.lastMarket);captureVisibleLowestQuiet();refresh();save();
   }
   function bindUI(){
     bindWorkspace();$('close').addEventListener('click',closePanel);
-    $('searchRoute').addEventListener('change',()=>{state.searchPlan=null;save();});
+    $('engineMode').addEventListener('change',()=>{if(engineMode()!=='codex')$('searchRoute').value='sdk';state.searchPlan=null;updateEngineModeHelp();save();});
+    $('searchRoute').addEventListener('change',()=>{if(engineMode()!=='codex')$('searchRoute').value='sdk';state.searchPlan=null;save();});
     $('maxBin').addEventListener('input',()=>{state.effectiveMaxPrice=null;state.lastRisk=null;refresh();});
     for(const id of ['priceSource','pricePlatform','pricePercent','itemId'])$(id).addEventListener('change',()=>{state.priceQuote=null;state.effectiveMaxPrice=null;$('quoteBox').textContent='—';if($('providerSite'))$('providerSite').href=input('priceSource')==='futgg'?'https://www.fut.gg/players/':'https://www.futbin.com/27/players';state.lastRisk=null;displayNativeOffers();});
     $('loadEditions').addEventListener('click',()=>loadPriceEditions().catch(e=>addLog(e.message,'error')));
@@ -1375,12 +1425,12 @@
     createPortal();
     try{const stored=await Extension.storageGet(STORAGE);const config=stored[STORAGE]||{};state.presets=config.presets||{};state.cache=config.cache||[];state.logs=config.logs||[];state.selected=config.selected||null;state.selectedTargets=Array.isArray(config.selectedTargets)?config.selectedTargets:[];state.eventTargets=Array.isArray(config.eventTargets)?config.eventTargets:[];
       if(config.language==='en')setLanguage('en');
-      state.priceControlsOpen=Boolean(config.priceControlsOpen);$('priceControls').open=state.priceControlsOpen;state.introHidden=Boolean(config.introHidden);applyIntroVisibility();state.panelLayout=config.panelLayout||null;restorePanelLayout();fillSettings(config.settings||{});populatePresets();updateSpeedControls();renderLogs();renderTargets();renderEvents();updateDatalists();}
+      state.priceControlsOpen=Boolean(config.priceControlsOpen);$('priceControls').open=state.priceControlsOpen;state.introHidden=Boolean(config.introHidden);applyIntroVisibility();state.panelLayout=config.panelLayout||null;state.themeLayouts=config.themeLayouts&&typeof config.themeLayouts==='object'&&!Array.isArray(config.themeLayouts)?config.themeLayouts:{};applyWorkspaceTheme(config.workspaceTheme||'classic');fillSettings(config.settings||{});populatePresets();updateSpeedControls();renderLogs();renderTargets();renderEvents();updateDatalists();}
     catch(e){addLog('تعذر قراءة الإعدادات المحلية: '+e.message,'warning');}
     updateSpeedControls();observeNav();refresh();timer=setInterval(refresh,200);
     const animate=()=>{if(state.open&&(state.running||state.scanning))paintSpeedGauge(state.nextIntervalMs);requestAnimationFrame(animate);};requestAnimationFrame(animate);
     window.addEventListener('pagehide',()=>{if(state.running)stop('صفحة EA اتقفلت أو اتحدثت');});
-    addLog('واجهة CODEX SNIPE v3.9.4 جاهزة — بانتظار اكتشاف قائمة EA.');
+    addLog('واجهة CODEX SNIPE v3.10.0 جاهزة — بانتظار اكتشاف قائمة EA.');
   }
   if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',init,{once:true});else init();
 })();

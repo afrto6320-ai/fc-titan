@@ -1,3 +1,11 @@
+# 3.10.0
+- Wait for the native league selection and dependent Club control to settle before returning a fresh snapshot; lock search while a filter selection is pending and retain native locks/cancellation.
+- Add independently implemented Pharaoh, Deep and Enhancer strategy profiles alongside the default CODEX strategy. Bound first-page sniping where specified, rank native candidates, support a cancellable Deep pre-buy delay and native service-bid routes under the same identity/receipt/spend guards.
+- Keep manual scan result counts, configured speed ranges and price/ladder limits. Do not import vendor engines, raw request replay, prototype overrides, automatic listing, or silent provider/platform fallback.
+- Deduplicate displayed Trade IDs and label auctions seen in the preceding response. Retain distinct same-player auctions, clear results after filter changes, and restore result provenance on language rebuilds.
+- Add Classic, Cockpit and Aurora palettes and layouts with a top-bar selector, per-theme saved ordering/reset, responsive columns and persistent controls. Reuse existing UI nodes when switching themes, including during native searches.
+- Add browser regressions for delayed league/club updates, truthful repeats, all profile candidate and purchase routes, Stop during delay, shared native budgets, per-theme layouts/persistence/language changes and live-session theme switching. Add pure profile ranking/count/identity tests.
+
 # 3.9.4
 - Log the confirmed prepared Min/Max Bid and Min/Max Buy Now immediately before each native manual scan or snipe search dispatch.
 - Include the target, 1-based ladder step and cycle length; label zero Max Bid as uncapped and fixed-bid mode without reusing an old ladder step.

@@ -67,12 +67,13 @@ class Filter {
   }
   get id(){return this.getOptions()[this.index]?.id??-1;}
   get label(){return this.getOptions()[this.index]?.label||'';}
-  isInteractionEnabled(){return !this.owner.viewmodel.playerData||!['nation','club','league'].includes(this.kind);}
+  isInteractionEnabled(){if(this.kind==='club'&&window.__clubWaiting)return false;return !this.owner.viewmodel.playerData||!['nation','club','league'].includes(this.kind);}
   setIndex(i){
     if(!this.isInteractionEnabled())return;
     this.index=i;const item=this.getOptions()[i];
     const enumKey={quality:'LEVEL',event:'RARITY',position:'POSITION',nation:'NATION',league:'LEAGUE',club:'CLUB'}[this.kind];
-    this.owner.eFilterChanged(null,null,{setId:enums.UISearchFilters[enumKey],id:item.id,value:item.value});
+    const apply=()=>this.owner.eFilterChanged(null,null,{setId:enums.UISearchFilters[enumKey],id:item.id,value:item.value});
+    if(this.kind==='league'&&window.__leagueDelay){window.__leagueChoices=(window.__leagueChoices||0)+1;window.__clubWaiting=true;setTimeout(()=>{apply();setTimeout(()=>{window.__clubWaiting=false;},60);},window.__leagueDelay);}else apply();
   }
 }
 window.UTMarketSearchFiltersViewController=class UTMarketSearchFiltersViewController {

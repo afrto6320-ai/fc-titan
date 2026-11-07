@@ -8,6 +8,7 @@ with sync_playwright() as p:
  b=p.chromium.launch(executable_path='/usr/bin/chromium',headless=True,args=['--no-sandbox','--disable-dev-shm-usage'])
  page=b.new_page(viewport={'width':1500,'height':960})
  page.set_content(html)
+ page.add_script_tag(content=(root/'engine-modes.js').read_text())
  page.add_script_tag(content=(root/'extension-client.js').read_text())
  page.add_script_tag(content=(root/'snipe-core.js').read_text())
  page.add_script_tag(content=(root/'native-market.js').read_text())
