@@ -4,17 +4,33 @@ root=pathlib.Path(__file__).resolve().parent.parent
 html=(root/'tests/fixture33.html').read_text()
 css='data:text/css;base64,'+base64.b64encode((root/'embedded.css').read_bytes()).decode()
 html=html.replace("getURL:x=>'/'+x",f"getURL:x=>'{css}'")
+old_aurora={'workspaceTheme':'aurora','themeLayouts':{'aurora':{'control':['players','connection'],'center':['market','stats'],'right':['engine','logs','compat','technical','data']}}}
+html=html.replace('get:async()=>({})','get:async()=>('+json.dumps({'gpts_embedded_v3':old_aurora})+')')
 with sync_playwright() as p:
  b=p.chromium.launch(executable_path='/usr/bin/chromium',headless=True,args=['--no-sandbox','--disable-dev-shm-usage'])
  page=b.new_page(viewport={'width':1500,'height':960})
  page.set_content(html)
- page.add_script_tag(content=(root/'engine-modes.js').read_text())
+ page.add_script_tag(content=(root/'ui-helpers.js').read_text())
  page.add_script_tag(content=(root/'extension-client.js').read_text())
  page.add_script_tag(content=(root/'snipe-core.js').read_text())
  page.add_script_tag(content=(root/'native-market.js').read_text())
  page.add_script_tag(content=(root/'embedded.js').read_text())
  page.locator('#gpts-v3-nav').click()
  sh=page.locator('#gpts-v3-host')
+ assert sh.locator('#workspaceTheme').input_value()=='aurora'
+ assert sh.locator('.column.control > [data-panel-key]').first.get_attribute('data-panel-key')=='stats'
+ sh.locator('#editLayout').click()
+ sh.locator('[data-panel-key="engine"] > .panel-head .panel-move[data-move="up"]').click()
+ assert sh.locator('.column.control > [data-panel-key]').first.get_attribute('data-panel-key')=='stats'
+ sh.locator('[data-panel-key="stats"] > .panel-head .panel-move[data-move="column"]').click()
+ assert sh.locator('.column.center > [data-panel-key]').first.get_attribute('data-panel-key')=='stats'
+ assert sh.locator('[data-panel-key="stats"] > .panel-head .panel-move[data-move="down"]').is_disabled()
+ sh.locator('#workspaceTheme').select_option('classic');sh.locator('#workspaceTheme').select_option('aurora')
+ assert sh.locator('.column.center > [data-panel-key]').first.get_attribute('data-panel-key')=='stats'
+ sh.locator('#resetLayout').click()
+ assert sh.locator('.column.control > [data-panel-key]').first.get_attribute('data-panel-key')=='stats'
+ sh.locator('#editLayout').click()
+ print('PASS: old Aurora defaults migrate; counter remains first after reordering, moving columns, theme restore and reset')
  assert sh.locator('#connectEA').count()==1
  sh.locator('#connectEA').click()
  page.wait_for_timeout(2800)

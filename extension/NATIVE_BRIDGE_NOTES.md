@@ -1,3 +1,15 @@
+# v3.10.1 missing isolated helpers and Aurora clock
+
+The uploaded 3.10.0 log has valid extension runtime/version, a successfully prepared SDK price plan and no confirmed market response. It records undefined trade helper and repeated undefined `.get` errors. The earliest matching UI dereference is Modes.get in the dispatch activity log; that can stop both scan and run before Page.request(search). The logs do not establish an EA market rejection or a new provider failure. We do not have a live user DevTools stack proving the underlying browser loading mechanism.
+
+The former manifest listed engine-modes.js, trade-core.js and ea-options.js in both worlds. The new isolated entry ui-helpers.js is deterministically built from these owned pure sources; MAIN retains the individual source files. No script URL is registered in both worlds. This removes reliance on shared URL loading/publication while keeping behavior identical. The manifest and generated-content regression guards against restoring the problematic arrangement or shipping stale helpers. Missing mode exports now produce UI_HELPERS_MISSING before dispatch instead of crashing a log statement; runtime diagnostics expose all helper states.
+
+Browser regressions now evaluate each manifest entry individually in an actual Chromium isolated context rather than injecting a hand-built merged helper list. The normal case checks helper exports before exercising market scans and native purchases. The deliberately omitted entry case must render a reload diagnostic, disable dispatch and send zero market searches. These are manifest-plan/world tests, not an installed-extension test: a new attempt to load the extension through Chrome's Extensions.loadUnpacked protocol was rejected as disabled by the administrator. No administrator policy was changed or bypassed.
+
+Aurora uses a top-pinned counter and a charcoal/copper digital instrument. It retains the same time/phase nodes and calculation source. Its bar shows actual waiting progress and an indeterminate animation during request processing; it does not claim a network completion percentage. Old default panel preferences migrate; custom counter placement is retained but made first within its column. Theme switching and the original native transaction/receipt guards remain unchanged.
+
+---
+
 # v3.10.0 strategies, dependent control settling and live themes
 
 The previous choose handler returned readFilters immediately after setIndex. EA may update criteria and dependent interaction state on later tasks, so that snapshot can still show a locked Club; reopening League fetched a later snapshot. The new league path polls confirmed native criteria/selection and dependent readiness, bounded to two seconds, checks controller ownership and cancellation, and never forces a native lock open. The isolated UI tracks the pending choose operation and disables new searches while it completes. A browser fixture delays league criteria by 250ms and Club readiness by another 60ms; one click now suffices to enable and scope Club.

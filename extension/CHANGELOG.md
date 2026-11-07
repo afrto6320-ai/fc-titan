@@ -1,3 +1,10 @@
+# 3.10.1
+- Fix the observed UI mode-helper dependency failure before search dispatch. Ship the isolated helpers in a dedicated generated entry with no shared MAIN/ISOLATED script URLs; report modes/options readiness and disable unsupported dispatch with a clear missing-helper diagnostic.
+- Load browser-test scripts individually according to the manifest instead of manually providing extra globals. Check bundle freshness, helper exports and disjoint world entries; add an omitted-helper regression that sends no market request.
+- Restyle Aurora in charcoal/copper with a digital session clock, real waiting progress and indeterminate request activity. Put counters/engine left, players center and results/logs right by default.
+- Pin Aurora's counter first in its current column, including custom arrangements and moves; migrate the previous default while retaining customized layouts.
+- Preserve existing native search/purchase profiles and money/receipt guards. Synchronize the pre-buy cancellation regression to the actual delay phase.
+
 # 3.10.0
 - Wait for the native league selection and dependent Club control to settle before returning a fresh snapshot; lock search while a filter selection is pending and retain native locks/cancellation.
 - Add independently implemented Pharaoh, Deep and Enhancer strategy profiles alongside the default CODEX strategy. Bound first-page sniping where specified, rank native candidates, support a cancellable Deep pre-buy delay and native service-bid routes under the same identity/receipt/spend guards.

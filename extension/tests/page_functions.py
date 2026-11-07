@@ -50,10 +50,10 @@ with sync_playwright() as p:
     page.route('**/test-portraits/**',lambda route:route.fulfill(status=200,content_type='image/svg+xml',body='<svg xmlns="http://www.w3.org/2000/svg" width="20" height="20"><rect width="20" height="20" fill="blue"/></svg>'))
     page.on('pageerror',lambda e:errors.append(str(e)))
     page.goto(URL)
-    page.add_script_tag(content=(ROOT/'trade-core.js').read_text())
-    page.add_script_tag(content=(ROOT/'ea-options.js').read_text())
-    page.add_script_tag(content=(ROOT/'engine-modes.js').read_text())
-    page.add_script_tag(content=(ROOT/'ea-page-bridge.js').read_text())
+    manifest=json.loads((ROOT/'manifest.json').read_text())
+    for entry in manifest['content_scripts']:
+      if entry.get('world')=='MAIN':
+        for filename in entry['js']:page.add_script_tag(content=(ROOT/filename).read_text())
     cdp=context.new_cdp_session(page)
     frame=cdp.send('Page.getFrameTree')['frameTree']['frame']['id']
     world=cdp.send('Page.createIsolatedWorld',{'frameId':frame,'worldName':'gpts-test-extension'})['executionContextId']
@@ -62,9 +62,14 @@ with sync_playwright() as p:
     stored={'gpts_embedded_v3':{'selected':stale,'selectedTargets':[stale],'settings':{'player':'Mohamed Salah','itemId':'50540979','searchRoute':'screen','bidLadder':'off'}}}
     shim='window.chrome={runtime:{getURL:()=>'+json.dumps(css)+',sendMessage:async()=>{throw Error("Unexpected external catalogue request")}},storage:{local:{get:async()=>('+json.dumps(stored)+'),set:async()=>{}}}};'
     shim+='window.__playedTones=0;const originalOscillator=AudioContext.prototype.createOscillator;AudioContext.prototype.createOscillator=function(){window.__playedTones++;return originalOscillator.call(this);};'
-    scripts=['engine-modes.js','extension-client.js','price-providers.js','snipe-core.js','trade-core.js','ea-options.js','ea-page-client.js','native-market.js','embedded.js']
-    loaded=cdp.send('Runtime.evaluate',{'contextId':world,'expression':shim+'\n'+'\n'.join((ROOT/name).read_text() for name in scripts)})
-    assert 'exceptionDetails' not in loaded,loaded
+    scripts=[name for entry in manifest['content_scripts'] if entry.get('world','ISOLATED')=='ISOLATED' for name in entry['js']]
+    cdp.send('Runtime.evaluate',{'contextId':world,'expression':shim})
+    for filename in scripts:
+      loaded=cdp.send('Runtime.evaluate',{'contextId':world,'expression':(ROOT/filename).read_text()+'\n//# sourceURL=chrome-extension://codex-fixture/'+filename})
+      assert 'exceptionDetails' not in loaded,loaded
+    helpers=cdp.send('Runtime.evaluate',{'contextId':world,'expression':'[typeof CodexEngineModes.get,typeof CodexTradeCore.pace,typeof CodexEAOptions.groups]','returnByValue':True})
+    assert helpers['result']['value']==['function']*3
+    print('PASS: isolated scripts loaded individually in manifest order expose all required UI helpers')
     def request(command,args=None):
         expression='GPTPageClient.request('+json.dumps(command)+','+json.dumps(args or {})+').then(result=>({ok:true,result}),e=>({ok:false,code:e.code,message:e.message}))'
         result=cdp.send('Runtime.evaluate',{'contextId':world,'expression':expression,'awaitPromise':True,'returnByValue':True})
@@ -774,10 +779,11 @@ with sync_playwright() as p:
     assert sh.locator('.column.center [data-panel-key="engine"]').count()==1
     sh.locator('#editLayout').click()
     sh.locator('#workspaceTheme').select_option('aurora')
-    assert sh.locator('.column.center [data-panel-key="market"]').count()==1
-    assert sh.locator('.column.right [data-panel-key="engine"]').count()==1
+    assert sh.locator('.column.right [data-panel-key="market"]').count()==1
+    assert sh.locator('.column.control [data-panel-key="engine"]').count()==1
+    assert sh.locator('.column.control > [data-panel-key]').first.get_attribute('data-panel-key')=='stats'
     sh.locator('#language').select_option('en')
-    assert sh.locator('#workspaceTheme').input_value()=='aurora' and sh.locator('.column.center [data-panel-key="market"]').count()==1
+    assert sh.locator('#workspaceTheme').input_value()=='aurora' and sh.locator('.column.right [data-panel-key="market"]').count()==1
     sh.locator('#language').select_option('ar')
     assert sh.locator('#marketResponse').inner_text()==response_caption
     page.evaluate("window.__themeStartNode=document.querySelector('#gpts-v3-host').shadowRoot.querySelector('#start')")
@@ -789,7 +795,7 @@ with sync_playwright() as p:
       palettes.append(sh.locator('[data-panel-key="players"]').evaluate('(e)=>getComputedStyle(e).backgroundImage'))
       assert page.evaluate("document.querySelector('#gpts-v3-host').shadowRoot.querySelector('#start')===__themeStartNode") is True
       page.set_viewport_size({'width':1700,'height':1050});sh.locator('#shell').evaluate('(e)=>e.scrollTop=0')
-      page.screenshot(path='/tmp/CODEX_SNIPE_v3.10.0_'+theme+'.png')
+      page.screenshot(path='/tmp/CODEX_SNIPE_v3.10.1_'+theme+'.png')
       if theme!='classic':
         left=sh.locator('.column.control').bounding_box();center=sh.locator('.column.center').bounding_box();right=sh.locator('.column.right').bounding_box()
         assert left['x']<center['x']<right['x']
@@ -825,10 +831,15 @@ with sync_playwright() as p:
     for mode,expected,pages,action_delta in [('pharaoh',0,1,0),('deep',2,1,1),('enhancer',1,2,0)]:
       sh.locator('#engineMode').select_option(mode);page.evaluate("__makeModeOffers('profile-'+"+json.dumps(mode)+")")
       before=page.evaluate('({bid:__bidCalls,action:__actionBidCalls})');sh.locator('#autoBuy').check();
-      if mode=='pharaoh':page.evaluate('window.__testDelay=650')
+      if mode=='pharaoh':page.evaluate('window.__testDelay=1600')
       sh.locator('#start').click()
       if mode=='pharaoh':
         page.wait_for_function('__sdkCalls.length===1');sh.locator('#workspaceTheme').select_option('cockpit');sh.locator('#workspaceTheme').select_option('aurora')
+        assert sh.locator('.cycle-gauge').is_hidden() and sh.locator('#digitalTrack').is_visible()
+        page.wait_for_function("()=>{const a=document.querySelector('#gpts-v3-host').shadowRoot.querySelector('#digitalProgress').getAnimations()[0];return a?.playState==='running'&&a.currentTime>0;}")
+        progress_time=sh.locator('#digitalProgress').evaluate('(e)=>e.getAnimations()[0]?.currentTime')
+        page.wait_for_timeout(90)
+        assert sh.locator('#digitalProgress').evaluate('(e)=>e.getAnimations()[0]?.currentTime')>progress_time
       page.wait_for_function("()=>{const s=document.querySelector('#gpts-v3-host').shadowRoot;return s.querySelector('#buyCount').textContent==='1'&&!s.querySelector('#start').disabled;}")
       assert page.evaluate('__bidCalls')==before['bid']+1 and page.evaluate('__actionBidCalls')==before['action']+action_delta
       assert page.evaluate('__lastBidItem===__modeRows['+str(expected)+']') and page.evaluate('__sdkCalls.length')==pages
@@ -840,7 +851,7 @@ with sync_playwright() as p:
 
     sh.locator('#engineMode').select_option('deep');page.evaluate("__makeModeOffers('profile-stop')")
     calls=page.evaluate('__bidCalls');sh.locator('#start').click()
-    sh.locator('#cyclePhase').filter(has_text='انتظار محاولة الشراء').wait_for();sh.locator('#stop').click();page.wait_for_timeout(400)
+    page.wait_for_function("()=>{const s=document.querySelector('#gpts-v3-host').shadowRoot;if(s.querySelector('#cyclePhase').textContent.includes('انتظار محاولة الشراء')&&!s.querySelector('#stop').disabled){s.querySelector('#stop').click();return true;}return false;}");page.wait_for_timeout(400)
     assert page.evaluate('__bidCalls')==calls and sh.locator('#buyCount').inner_text()=='0'
     print('PASS: Stop during the Deep pre-buy delay dispatches no bid and records no purchase')
 
@@ -868,6 +879,30 @@ with sync_playwright() as p:
     print('PASS: Pharaoh/Enhancer service-bid routes preserve original-item identity, confirmed receipt and the immutable shared budget')
     page.evaluate('UTItemActionController.prototype.bid=window.__originalActionBid;window.__testDelay=50')
     sh.locator('#engineMode').select_option('codex');sh.locator('#searchRoute').select_option('screen');sh.locator('#resultsCount').fill('20')
+
+    # Missing the isolated helper entry must give a setup diagnostic, never a .get crash or a market request.
+    missing_page=context.new_page();missing_errors=[];missing_page.on('pageerror',lambda e:missing_errors.append(str(e)))
+    missing_page.goto(URL)
+    for entry in manifest['content_scripts']:
+      if entry.get('world')=='MAIN':
+        for filename in entry['js']:missing_page.add_script_tag(content=(ROOT/filename).read_text())
+    missing_cdp=context.new_cdp_session(missing_page)
+    missing_frame=missing_cdp.send('Page.getFrameTree')['frameTree']['frame']['id']
+    missing_world=missing_cdp.send('Page.createIsolatedWorld',{'frameId':missing_frame,'worldName':'codex-missing-helper-test'})['executionContextId']
+    missing_cdp.send('Runtime.evaluate',{'contextId':missing_world,'expression':shim})
+    for filename in scripts:
+      if filename=='ui-helpers.js':continue
+      loaded=missing_cdp.send('Runtime.evaluate',{'contextId':missing_world,'expression':(ROOT/filename).read_text()+'\n//# sourceURL=chrome-extension://codex-missing/'+filename})
+      assert 'exceptionDetails' not in loaded,loaded
+    missing_page.locator('#gpts-v3-nav').click()
+    missing_sh=missing_page.locator('#gpts-v3-host')
+    assert missing_sh.locator('#start').is_disabled() and missing_sh.locator('#scanMarket').is_disabled()
+    assert 'UI_HELPERS_MISSING' in missing_sh.locator('#uiDependencyStatus').inner_text()
+    missing_sh.locator('#scanMarket').dispatch_event('click')
+    assert 'UI_HELPERS_MISSING' in missing_sh.locator('#logs').inner_text()
+    assert missing_page.evaluate('__testSearches')==0 and not missing_errors
+    missing_page.close()
+    print('PASS: omitted helper entry yields a reload diagnostic and no query, with no undefined .get exception')
 
     # A successful transport with no isWon state is uncertain, not a completed purchase.
     page.evaluate("resetTrade('uncertain-buy');window.__bidScenario='pending'")
