@@ -4,6 +4,8 @@ AI-powered EA FC Ultimate Team Trading Platform
 
 ## CODEX SNIPE browser extension
 
+The uploaded **player-sync variant v3.17.1** is in `variants/player-sync/`: [download CODEX_SNIPE_v3.17.1.zip](downloads/CODEX_SNIPE_v3.17.1.zip). It keeps the supplied v3.17 player-sync interface and adds optional Off / Min Bid / regular Max Bid / smart Max Bid ladders for scans and sniping, with Enhancer as the default search route for fresh settings. Smart Max Bid starts above the current native Buy Now cap without raising the purchase price. See its [usage and verification notes](variants/player-sync/README_AR.md). This is a separate source variant from the earlier three-theme build below.
+
 Source: `extension/` (Manifest V3, v3.10.1). Load the complete directory as an unpacked extension and reload the FC Web App.
 
 Download: [CODEX_SNIPE_v3.10.1.zip](downloads/CODEX_SNIPE_v3.10.1.zip). Choose Classic, Cockpit or Aurora from the top bar: each combines a different palette and panel arrangement, with independent saved panel ordering. Cockpit places players/filters left, session statistics and engine controls in the center, and results/logs right. Aurora now uses charcoal/copper colors, a digital clock and a top-pinned counter; the new default places counters/engine left, players center, and results/logs right. Themes move existing controls and retain live session state.
