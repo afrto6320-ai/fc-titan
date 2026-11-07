@@ -4,7 +4,7 @@ root=pathlib.Path(__file__).resolve().parent.parent
 html=(root/'tests/fixture33.html').read_text()
 css='data:text/css;base64,'+base64.b64encode((root/'embedded.css').read_bytes()).decode()
 html=html.replace("getURL:x=>'/'+x",f"getURL:x=>'{css}'")
-old_aurora={'workspaceTheme':'aurora','themeLayouts':{'aurora':{'control':['players','connection'],'center':['market','stats'],'right':['engine','logs','compat','technical','data']}}}
+old_aurora={'workspaceTheme':'aurora','settings':{'bidLadder':'max'},'themeLayouts':{'aurora':{'control':['players','connection'],'center':['market','stats'],'right':['engine','logs','compat','technical','data']}}}
 html=html.replace('get:async()=>({})','get:async()=>('+json.dumps({'gpts_embedded_v3':old_aurora})+')')
 with sync_playwright() as p:
  b=p.chromium.launch(executable_path='/usr/bin/chromium',headless=True,args=['--no-sandbox','--disable-dev-shm-usage'])
@@ -18,6 +18,17 @@ with sync_playwright() as p:
  page.locator('#gpts-v3-nav').click()
  sh=page.locator('#gpts-v3-host')
  assert sh.locator('#workspaceTheme').input_value()=='aurora'
+ assert sh.locator('#bidLadder').input_value()=='smartMaxBid'
+ assert sh.locator('#bidLadder option').evaluate_all('(els)=>els.map(e=>e.value)')==['off','minBid','maxBid','smartMaxBid']
+ for value in ['minBid','maxBid','smartMaxBid','off']:
+  sh.locator('#bidLadder').select_option(value)
+  assert sh.locator('#bidLadderCeiling').is_disabled()==(value!='smartMaxBid')
+  sh.locator('#language').select_option('en')
+  assert sh.locator('#bidLadder').input_value()==value
+  sh.locator('#language').select_option('ar')
+  assert sh.locator('#bidLadder').input_value()==value
+ sh.locator('#bidLadder').select_option('smartMaxBid')
+ print('PASS: original Aurora dashboard migrates its old smart setting and retains all four ladder choices through language rebuilds')
  assert sh.locator('.column.control > [data-panel-key]').first.get_attribute('data-panel-key')=='stats'
  sh.locator('#editLayout').click()
  sh.locator('[data-panel-key="engine"] > .panel-head .panel-move[data-move="up"]').click()

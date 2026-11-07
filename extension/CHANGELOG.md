@@ -1,3 +1,10 @@
+# 3.18.0
+- Continue the original CODEX source in extension/, including Classic/Cockpit/Aurora, saved layouts, the top-pinned Aurora digital clock, native SDK search and confirmed-purchase/budget guards. Package this source as the current download.
+- Add separate Min Bid, regular Max Bid and Smart Max Bid options plus Off to the original settings panel. Preserve the existing smart ceiling; migrate the old CODEX max value to Smart Max Bid and recognize the uploaded variant's saved ladder names.
+- Start Smart Max Bid strictly above the effective per-player Buy Now cap; retain Min Bid and purchase limits. Regular bid ladders explicitly disclose their narrowing effect. All options use the existing cloned SDK plan and cache eviction path.
+- Log the selected ladder and effective values at dispatch; preserve choice across themes, language rebuilds and presets. Remove the duplicate UI ladder calculation and ship the regenerated isolated helpers.
+- Extend the original browser regressions to all ladder options, native cache eviction, original purchase receipts and theme/layout migration. Test repeats honestly: different constraints can still receive the same native Trade IDs.
+
 # 3.10.1
 - Fix the observed UI mode-helper dependency failure before search dispatch. Ship the isolated helpers in a dedicated generated entry with no shared MAIN/ISOLATED script URLs; report modes/options readiness and disable unsupported dispatch with a clear missing-helper diagnostic.
 - Load browser-test scripts individually according to the manifest instead of manually providing extra globals. Check bundle freshness, helper exports and disjoint world entries; add an omitted-helper regression that sends no market request.

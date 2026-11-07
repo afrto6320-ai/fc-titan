@@ -32,7 +32,7 @@
     const c = context();
     const marketAllowed = c.game && typeof window.services?.TransferMarket?.isFeatureEnabledForUser === 'function'
       ? window.services.TransferMarket.isFeatureEnabledForUser() === true : false;
-    return {bridgeVersion:'3.10.1',mode:'page-functions', appReady:c.game, marketAllowed,
+    return {bridgeVersion:'3.18.0',mode:'page-functions', appReady:c.game, marketAllowed,
       controller:text(c.controller?.constructor?.name), hasForm:isFilter(c.controller),
       hasResults:Boolean(resultController(c.controller)), busy:Boolean(activeCommand||activeSearch||activePurchase),
       capabilities:{engineModes:window.CodexEngineModes?1:0,navigation:typeof c.root?.setGameViewTab === 'function',

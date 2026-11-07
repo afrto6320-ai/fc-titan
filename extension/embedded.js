@@ -1,4 +1,4 @@
-/* CODEX SNIPE v3.10.1 embedded interface; uses native EA services without exporting authentication tokens. */
+/* CODEX SNIPE v3.18.0 embedded interface; uses native EA services without exporting authentication tokens. */
 (() => {
   'use strict';
   if (window.__GPT_SNIPE_V3__) return;
@@ -46,14 +46,29 @@
   }
   function input(id){return $(id)?.value.trim()||'';}
   function numeric(id){return Number(input(id)||0);}
-  function fillSettings(obj={}){for(const [k,value] of Object.entries(obj)){const e=$(k);if(!e||k==='referencePrice')continue;if(e.type==='checkbox')e.checked=Boolean(value);else e.value=value??'';}updateNativeLabels();}
+  function fillSettings(obj={}){
+    const settings={...obj};
+    // Old CODEX "max" meant its smart ladder; the uploaded variant used separate names.
+    if(settings.bidLadder==='max')settings.bidLadder='smartMaxBid';
+    if(!settings.bidLadder&&['off','minBid','maxBid','smartMaxBid'].includes(settings.bidLadderMode))settings.bidLadder=settings.bidLadderMode;
+    for(const [k,value] of Object.entries(settings)){const e=$(k);if(!e||k==='referencePrice')continue;if(e.type==='checkbox')e.checked=Boolean(value);else e.value=value??'';}
+    updateNativeLabels();updateBidLadderHelp();
+  }
+  function updateBidLadderHelp(){
+    if(!$('bidLadderHelp'))return;
+    const mode=input('bidLadder'),ar=state.language==='ar';
+    $('bidLadderHelp').textContent=mode==='smartMaxBid'?(ar?'الذكي يبدأ بأول خطوة فوق سقف Max Buy Now الفعلي. Min Bid وسعر الشراء لا يتغيران. يصل للنهاية المختارة ثم يبحث بدون سقف مزايدة ويعيد الدورة.':'Smart starts one valid step above the effective Buy Now cap. Min Bid and purchase price stay fixed. It reaches your chosen ceiling, searches uncapped, then restarts.'):
+      mode==='minBid'?(ar?'Min Bid يتحرك من الحد الذي حددته حتى 600 ثم يعيد الدورة، ويحترم Max Bid. قد يستبعد عروضًا رخيصة.':'Min Bid cycles from your configured minimum through 600, respecting Max Bid. It can exclude cheap auctions.'):
+      mode==='maxBid'?(ar?'Max Bid العادي: 0 (بدون حد) ثم 150 ثم 200…600 ويعيد الدورة، مع احترام Min Bid. قد يستبعد عروضًا داخل سقف Buy Now.':'Regular Max Bid: 0 (uncapped), 150, 200…600, then repeats, respecting Min Bid. It can exclude auctions within your Buy Now cap.'):
+      (ar?'السلم متوقف: تُستخدم حدود المزايدة الثابتة. مسح كاش السوق المحلي مستقل عن اختيار السلم.':'Ladder off: use fixed bid limits. Local market cache clearing is independent of this choice.');
+  }
   function updateNativeLabels(){for(const id of ['quality','position','nation','league','club','event']){const el=$('nativeLabel'+id.charAt(0).toUpperCase()+id.slice(1));if(el)el.textContent=input(id)||'— EA';}}
   function uiHTML(){return `
   <main id="shell" dir="${state.language==='ar'?'rtl':'ltr'}" lang="${state.language}" aria-label="CODEX SNIPE dashboard">
-    <header class="top"><div class="brand"><div class="mark" aria-hidden="true">◎</div><div><h1>CODEX <span>SNIPE</span></h1><small>ULTIMATE TEAM · EMBEDDED CONSOLE · v3.10.1</small></div></div>
+    <header class="top"><div class="brand"><div class="mark" aria-hidden="true">◎</div><div><h1>CODEX <span>SNIPE</span></h1><small>ULTIMATE TEAM · EMBEDDED CONSOLE · v3.18.0</small></div></div>
       <div class="head-actions"><label class="lang-label">${tr('language')} <select id="language"><option value="ar" ${state.language==='ar'?'selected':''}>العربية</option><option value="en" ${state.language==='en'?'selected':''}>English</option></select></label><span id="connection" class="pill warn">● EA WEB APP</span><span id="runBadge" class="pill">● STANDBY</span><button type="button" id="close" class="ghost">${tr('back')}</button></div></header>
     <div id="uiDependencyStatus" class="inline-warning" role="status" hidden></div>
-    <div class="intro"><div><div class="eyebrow">TRANSFER WORKSPACE / V3.10.1</div><h2>${tr('title')}</h2><p>${tr('subtitle')}</p></div><div class="hint">${tr('hint')}</div></div>
+    <div class="intro"><div><div class="eyebrow">TRANSFER WORKSPACE / V3.18.0</div><h2>${tr('title')}</h2><p>${tr('subtitle')}</p></div><div class="hint">${tr('hint')}</div></div>
     <div class="layout">
       <div class="column control">
         <details class="panel collapsible" open><summary class="panel-head"><h3><em>⌕</em> ${tr('players')}</h3><span class="tiny-tag">PLAYER FINDER</span></summary>
@@ -102,9 +117,9 @@
              <label class="field"><span>${tr('speedmax')}</span><input id="speedMax" type="number" min="0.6" max="60" step="0.1" value="5" disabled></label>
              <label class="field"><span>${tr('maxsearches')}</span><input id="maxSearches" type="number" min="1" max="300" value="30"></label>
              <label class="field"><span>${tr('maxbuys')}</span><input id="maxBuys" type="number" min="1" max="30" value="1"></label>
-             <label class="field full"><span>${state.language==='ar'?'سلم تغيير Max Bid':'Max Bid search ladder'}</span><select id="bidLadder"><option value="max" selected>${state.language==='ar'?'تصاعدي حتى الحد المختار ثم بحث شامل':'Rise to the chosen limit, then broad search'}</option><option value="off">${state.language==='ar'?'متوقف — استخدم القيم الثابتة':'Off — keep fixed bids'}</option></select></label>
-             <label class="field full"><span>${state.language==='ar'?'نهاية سلم Max Bid (حتى 15 مليون)':'Max Bid ladder ceiling (up to 15 million)'}</span><input id="bidLadderCeiling" type="number" min="150" max="15000000" step="50" value="200000"></label>
-             <p id="bidCycleStatus" class="desc full">${state.language==='ar'?'السلم يرفع Max Bid حتى النهاية المختارة، ثم يبحث بدون حد ويبدأ من جديد. Min Bid ثابت، وسقف الشراء لا يتغير.':'Max Bid rises to the selected ceiling, then runs uncapped and starts again. Min Bid and purchase limits stay fixed.'}</p>
+             <label class="field full"><span>${state.language==='ar'?'سلم المزايدة · اختياري':'Optional bid ladder'}</span><select id="bidLadder"><option value="off">${state.language==='ar'?'OFF · قيم ثابتة':'OFF · Fixed bids'}</option><option value="minBid">Min Bid</option><option value="maxBid">Max Bid</option><option value="smartMaxBid" selected>Smart Max Bid</option></select></label>
+             <label class="field full"><span>${state.language==='ar'?'نهاية Smart Max Bid (حتى 15 مليون)':'Smart Max Bid ceiling (up to 15 million)'}</span><input id="bidLadderCeiling" type="number" min="150" max="15000000" step="50" value="200000"></label>
+             <p id="bidLadderHelp" class="desc full" role="status"></p><p id="bidCycleStatus" class="desc full"></p>
              <label class="field full"><span>${tr('budget')} (Coins)</span><input id="budget" type="number" min="150" value="10000"></label>
              <label class="field full"><span>${state.language==='ar'?'بعد تأكيد الشراء':'After confirmed purchase'}</span><select id="postPurchase"><option value="leave">${state.language==='ar'?'اتركه كما هو (Unassigned)':'Leave in Unassigned'}</option><option value="club">${state.language==='ar'?'إرساله للنادي':'Send to Club'}</option><option value="transfer">${state.language==='ar'?'إرساله لقائمة الانتقالات':'Send to Transfer List'}</option></select></label><p class="desc full">${state.language==='ar'?'ميزانية الجلسة تجمع كل المشتريات. Max Buy Now حد الكارت الواحد. سرعة من / إلى تحدد المدى الزمني حسب طريقة المود الموضحة أعلاه.':'Session budget caps total spending; Max Buy Now caps one card. Speed from / to uses the timing rule explained by the selected mode.'}</p>
            </div><p class="desc" style="margin-top:12px">${tr('speedhelp')}</p>
@@ -132,7 +147,7 @@
         <details class="panel collapsible" id="technicalPanel"><summary class="panel-head"><h3><em>▤</em> ${tr('diagnosticlogs')}</h3><span class="tiny-tag">TECHNICAL</span></summary><div class="panel-body"><div class="action-row"><button id="copyTechnical" class="secondary" type="button">${tr('copysys')}</button><button id="exportTechnical" class="ghost" type="button">${tr('txtsys')}</button></div><pre id="technicalLogs" class="technical-logs">${tr('empty')}</pre></div></details>
         <details class="panel collapsible"><summary class="panel-head"><h3><em>ⓘ</em> ${tr('datalink')}</h3><span class="tiny-tag">STATUS</span></summary><div class="panel-body"><p class="desc">${tr('datahelp')}</p><div id="dataHealth" class="native-status">${tr('empty')}</div></div></details>
       </div>
-    </div><footer class="footer"><span>CODEX SNIPE v3.10.1 · Unofficial · Independent</span><span>SEARCH • INSPECT • MONITOR</span></footer>
+    </div><footer class="footer"><span>CODEX SNIPE v3.18.0 · Unofficial · Independent</span><span>SEARCH • INSPECT • MONITOR</span></footer>
   </main>`;}
   function organizeWorkspace(){
     $('runDock')?.remove();state.dockObserver?.disconnect();
@@ -428,6 +443,7 @@
     if($('scanMarket')){$('scanMarket').disabled=missingModeHelper||state.running||state.starting||state.editionUpdating||Boolean(state.pickerPending);$('scanMarket').textContent=state.scanning?(state.scanQueued?(state.language==='ar'?'تحديث جديد في الانتظار':'Refresh queued'):(state.language==='ar'?'جارٍ الفحص — اضغط لطلب تحديث':'Scanning — click to refresh again')):(state.language==='ar'?'فحص السوق — بحث جديد':'Scan market — fresh search');}
     if($('dockScan')){$('dockScan').disabled=$('scanMarket').disabled;$('dockScan').textContent=state.scanning?(state.scanQueued?(state.language==='ar'?'تحديث منتظر':'Refresh queued'):(state.language==='ar'?'طلب تحديث':'Request refresh')):(state.language==='ar'?'فحص السوق':'Scan market');}
     for(const id of ['engineMode','player','itemId','postPurchase','resultsCount','priceSource','pricePlatform','priceEdition','pricePercent','bidLadder','bidLadderCeiling','searchRoute','loadEditions','refreshQuote','autoBuy','budget','maxBuys','maxSearches','maxBin','minBin','minBid','maxBid','ratingMin','ratingMax'])if($(id))$(id).disabled=state.running||state.starting||state.scanning||state.editionUpdating;
+    updateBidLadderHelp();if($('bidLadderCeiling'))$('bidLadderCeiling').disabled=input('bidLadder')!=='smartMaxBid'||state.running||state.starting||state.scanning||state.editionUpdating;
     for(const button of shadow.querySelectorAll('[data-native-picker]'))button.disabled=state.running||state.starting||state.scanning||state.editionUpdating||Boolean(state.filterSelecting);
     updateClubAvailability();
     $('runBadge').innerHTML=state.running?'<i></i> LIVE SCANNING':'<i></i> STANDBY';$('runBadge').className='pill'+(state.running?' green':'');
@@ -993,7 +1009,7 @@
     checks[checks.length-1].status=dialog()?'pass':'unknown';
     add('CAPTCHA/security challenge',!blocked(),'Session must stop if protection appears',false);
     const counters={pass:checks.filter(x=>x.status==='pass').length,fail:checks.filter(x=>x.status==='fail').length,unknown:checks.filter(x=>x.status==='unknown').length};
-    const report={kind:'CODEX_SNIPE_COMPATIBILITY',version:'3.10.1',at:new Date().toISOString(),page:location.pathname,marketViewDetected:hasMarket,searchButtonDetected:hasSearch,counts:counters,checks,nativeFunctions:state.pageMode?state.pageSnapshot:null};
+    const report={kind:'CODEX_SNIPE_COMPATIBILITY',version:'3.18.0',at:new Date().toISOString(),page:location.pathname,marketViewDetected:hasMarket,searchButtonDetected:hasSearch,counts:counters,checks,nativeFunctions:state.pageMode?state.pageSnapshot:null};
     state.lastAudit=report;
     state.auditLog.unshift({at:report.at,summary:`Pass ${counters.pass}, Fail ${counters.fail}, Need view ${counters.unknown}`,marketView:hasMarket});
     state.auditLog=state.auditLog.slice(0,60);
@@ -1007,7 +1023,7 @@
   }
   function technicalAsText(){
     const lines=state.auditLog.map(x=>`[${x.at}] ${x.summary} | marketView=${x.marketView}`);
-    return ['CODEX SNIPE TECHNICAL LOG',...lines,'','Last native option audit:',JSON.stringify(state.lastPickerAudit||null),'','Extension runtime:',JSON.stringify({uiVersion:'3.10.1',...Extension?.status(),helpers:{modes:typeof Modes?.get,options:typeof window.CodexEAOptions?.groups,trade:typeof window.CodexTradeCore?.pace,prices:typeof window.CodexPrices?.cap,native:typeof window.GPTPageClient?.request}}),'','Clock diagnostics:',JSON.stringify({fallback:state.clockFallback===true,tradeHelper:typeof window.CodexTradeCore?.pace,rotor:state.rotorAnimation?.playState||null}),'','Last prepared SDK query:',JSON.stringify(state.searchPlan||null),'','Engine strategy:',engineMode(),'','Last bid ladder:',JSON.stringify(state.lastBidCycle||null),'','Last price-provider status:',JSON.stringify(state.lastPriceStatus||null),'','Last confirmed market response:',JSON.stringify(state.lastMarket?{searchId:state.lastMarket.searchId,requested:state.lastMarket.requested,count:state.lastMarket.count,pages:state.lastMarket.pages,receivedAt:state.lastMarket.receivedAt,localCacheCleared:state.lastMarket.localCacheCleared,freshEvent:state.lastMarket.freshEvent,identicalToPrevious:state.lastMarket.identicalToPrevious,transport:state.lastMarket.transport,nativePrices:state.lastMarket.nativePrices,sdkStatus:state.lastMarket.sdkStatus,newTrades:state.lastMarket.newTrades}:null),'','Recent application events:',...state.logs.slice(0,40).map(x=>`[${x.at}] ${x.level} ${x.message}`)].join('\n');
+    return ['CODEX SNIPE TECHNICAL LOG',...lines,'','Last native option audit:',JSON.stringify(state.lastPickerAudit||null),'','Extension runtime:',JSON.stringify({uiVersion:'3.18.0',...Extension?.status(),helpers:{modes:typeof Modes?.get,options:typeof window.CodexEAOptions?.groups,trade:typeof window.CodexTradeCore?.pace,prices:typeof window.CodexPrices?.cap,native:typeof window.GPTPageClient?.request}}),'','Clock diagnostics:',JSON.stringify({fallback:state.clockFallback===true,tradeHelper:typeof window.CodexTradeCore?.pace,rotor:state.rotorAnimation?.playState||null}),'','Last prepared SDK query:',JSON.stringify(state.searchPlan||null),'','Engine strategy:',engineMode(),'','Last bid ladder:',JSON.stringify(state.lastBidCycle||null),'','Last price-provider status:',JSON.stringify(state.lastPriceStatus||null),'','Last confirmed market response:',JSON.stringify(state.lastMarket?{searchId:state.lastMarket.searchId,requested:state.lastMarket.requested,count:state.lastMarket.count,pages:state.lastMarket.pages,receivedAt:state.lastMarket.receivedAt,localCacheCleared:state.lastMarket.localCacheCleared,freshEvent:state.lastMarket.freshEvent,identicalToPrevious:state.lastMarket.identicalToPrevious,transport:state.lastMarket.transport,nativePrices:state.lastMarket.nativePrices,sdkStatus:state.lastMarket.sdkStatus,newTrades:state.lastMarket.newTrades}:null),'','Recent application events:',...state.logs.slice(0,40).map(x=>`[${x.at}] ${x.level} ${x.message}`)].join('\n');
   }
   function renderDiagnostics(){
     const a=state.lastAudit;if(!a)return;
@@ -1070,17 +1086,14 @@
     if(state.pageMode){
       try{
         const maxBin=state.effectiveMaxPrice||numeric('maxBin'),base={minBid:numeric('minBid'),maxBid:numeric('maxBid'),minBin:numeric('minBin'),maxBin};
-        if(input('bidLadder')==='max'&&(!Number.isSafeInteger(numeric('bidLadderCeiling'))||numeric('bidLadderCeiling')<Math.max(150,maxBin,base.minBid,base.maxBid)||numeric('bidLadderCeiling')>15000000))throw Error('نهاية سلم Max Bid يجب ألا تقل عن بدايته، وحتى 15 مليون.');
+        const ladderMode=input('bidLadder')||'off';
         let ladder=null,key;
-        if(cycle&&input('bidLadder')==='max'){
-          const ceiling=numeric('bidLadderCeiling');key=JSON.stringify([state.pageSnapshot?.criteriaKey,base,ceiling]);state.bidCounts??=new Map();const index=state.bidCounts.get(key)||0;
+        if(cycle&&ladderMode!=='off'){
+          const ceiling=numeric('bidLadderCeiling');key=JSON.stringify([state.pageSnapshot?.criteriaKey,ladderMode,base,ladderMode==='smartMaxBid'?ceiling:null]);state.bidCounts??=new Map();const index=state.bidCounts.get(key)||0;
           const compute=(window.CodexTradeCore||globalThis.CodexTradeCore)?.bidLadder;
-          if(typeof compute==='function')ladder=compute({enabled:true,index,maxBuyNow:maxBin,minBid:base.minBid,maxBid:base.maxBid,ceiling});
-          else{const tick=n=>n<1000?50:n<10000?100:n<50000?250:n<100000?500:1000;let value=Math.max(150,maxBin,base.minBid,base.maxBid);value=Math.ceil(value/tick(value))*tick(value);
-            if(!Number.isSafeInteger(ceiling)||ceiling<value||ceiling>15000000)throw Error('اختر نهاية سلم لا تقل عن قيمة بدايته، وحتى 15 مليون.');
-            const values=[];while(value<=ceiling&&values.length<16000){values.push(value);value+=tick(value);}const step=index%(values.length+1);ladder={minBid:base.minBid,maxBid:step===values.length?0:values[step],step,broad:step===values.length,cycleLength:values.length+1,ceiling};}
-
-          base.maxBid=ladder.maxBid;
+          if(typeof compute!=='function')throw Error('Bid ladder helper missing. Reload the full extension and EA page.');
+          ladder=compute({enabled:true,mode:ladderMode,index,maxBuyNow:maxBin,minBid:base.minBid,maxBid:base.maxBid,ceiling});
+          base.minBid=ladder.minBid;base.maxBid=ladder.maxBid;
         }
         const route=input('searchRoute')||'sdk';
         const report=route==='sdk'?await Page.request('prepareSearch',{criteriaKey:state.pageSnapshot.criteriaKey,prices:base}):await Page.request('applyPrices',base);
@@ -1115,7 +1128,8 @@
   function logSearchPrices(applied,kind){
     if(!applied.prices)return;
     const ar=state.language==='ar',prices=applied.prices,ladder=applied.ladder;
-    const mode=ladder?(ar?'سلم Max Bid · خطوة ':'Max Bid ladder · step ')+(ladder.step+1)+'/'+ladder.cycleLength:(ar?'مزايدة ثابتة — السلم متوقف':'Fixed bids — ladder off');
+    const ladderName=ladder?.mode==='minBid'?'Min Bid':ladder?.mode==='maxBid'?'Max Bid':'Smart Max Bid';
+    const mode=ladder?(ar?'سلم ':'Ladder ')+ladderName+(ar?' · خطوة ':' · step ')+(ladder.step+1)+'/'+ladder.cycleLength:(ar?'مزايدة ثابتة — السلم متوقف':'Fixed bids — ladder off');
     const maximum=prices.maxBid===0?(ar?'بدون حد (0)':'Uncapped (0)'):fmt(prices.maxBid);
     const target=state.selected?.name||state.pageSnapshot?.player?.name||(ar?'الفلاتر الحالية':'Current filters');
     addLog((kind==='scan'?(ar?'إرسال فحص السوق':'Dispatch market scan'):(ar?'إرسال بحث السنايب':'Dispatch snipe search'))+' · '+target+' · '+(Modes?.get?.(engineMode())?.label||engineMode())+' · '+mode+' · Min Bid: '+fmt(prices.minBid)+' · Max Bid: '+maximum+' · Min Buy Now: '+fmt(prices.minBin)+' · Max Buy Now: '+fmt(prices.maxBin),'info');
@@ -1368,6 +1382,7 @@
     bindWorkspace();$('close').addEventListener('click',closePanel);
     $('engineMode').addEventListener('change',()=>{if(engineMode()!=='codex')$('searchRoute').value='sdk';state.searchPlan=null;updateEngineModeHelp();save();});
     $('searchRoute').addEventListener('change',()=>{if(engineMode()!=='codex')$('searchRoute').value='sdk';state.searchPlan=null;save();});
+    for(const id of ['bidLadder','bidLadderCeiling'])$(id).addEventListener('change',()=>{state.bidCounts?.clear();state.lastBidCycle=null;state.searchPlan=null;if($('bidCycleStatus'))$('bidCycleStatus').textContent='';updateBidLadderHelp();refresh();save();});
     $('maxBin').addEventListener('input',()=>{state.effectiveMaxPrice=null;state.lastRisk=null;refresh();});
     for(const id of ['priceSource','pricePlatform','pricePercent','itemId'])$(id).addEventListener('change',()=>{state.priceQuote=null;state.effectiveMaxPrice=null;$('quoteBox').textContent='—';if($('providerSite'))$('providerSite').href=input('priceSource')==='futgg'?'https://www.fut.gg/players/':'https://www.futbin.com/27/players';state.lastRisk=null;displayNativeOffers();});
     $('loadEditions').addEventListener('click',()=>loadPriceEditions().catch(e=>addLog(e.message,'error')));
@@ -1445,7 +1460,7 @@
     updateSpeedControls();observeNav();refresh();timer=setInterval(refresh,200);
     const animate=()=>{if(state.open&&(state.running||state.scanning))paintSpeedGauge(state.nextIntervalMs);requestAnimationFrame(animate);};requestAnimationFrame(animate);
     window.addEventListener('pagehide',()=>{if(state.running)stop('صفحة EA اتقفلت أو اتحدثت');});
-    addLog('واجهة CODEX SNIPE v3.10.1 جاهزة — بانتظار اكتشاف قائمة EA.');
+    addLog('واجهة CODEX SNIPE v3.18.0 جاهزة — بانتظار اكتشاف قائمة EA.');
   }
   if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',init,{once:true});else init();
 })();

@@ -13,13 +13,28 @@
     const cycle=cycleStart==null?0:Math.max(0,now-cycleStart),remaining=running?Math.max(0,intervalMs-cycle):0;
     return {elapsed,clock:clock(elapsed),remaining,progress:running&&intervalMs>0?Math.min(1,cycle/intervalMs):0,phase};
   }
-  function bidLadder({enabled,index=0,maxBuyNow,minBid=0,maxBid=0,ceiling=200000}){
-    if(!enabled)return {minBid,maxBid,step:null,broad:maxBid===0};
-    for(const value of [maxBuyNow,minBid,maxBid,ceiling])if(!Number.isSafeInteger(value)||value<0||value>15000000)throw Error('Invalid bid ladder value');
+  function bidLadder({enabled,mode='smartMaxBid',index=0,maxBuyNow,minBid=0,maxBid=0,ceiling=200000}){
+    if(!enabled||mode==='off')return {minBid,maxBid,step:null,broad:maxBid===0};
+    if(!['minBid','maxBid','smartMaxBid'].includes(mode))throw Error('Invalid bid ladder mode');
+    for(const value of [maxBuyNow,minBid,maxBid])if(!Number.isSafeInteger(value)||value<0||value>15000000)throw Error('Invalid bid ladder value');
+    if(maxBid>0&&minBid>maxBid)throw Error('Min Bid exceeds Max Bid');
     if(!Number.isSafeInteger(index)||index<0)throw Error('Invalid bid ladder index');
+    const regular=[0,150,200,250,300,350,400,450,500,550,600];
+    if(mode==='minBid'){
+      const values=[minBid,...regular.filter(v=>v>minBid&&(!maxBid||v<=maxBid))],step=index%values.length;
+      return {mode,minBid:values[step],maxBid,step,broad:maxBid===0,cycleLength:values.length};
+    }
+    if(mode==='maxBid'){
+      const values=regular.filter(v=>v===0||v>=minBid),step=index%values.length;
+      return {mode,minBid,maxBid:values[step],step,broad:values[step]===0,cycleLength:values.length};
+    }
+    if(maxBuyNow<150)throw Error('Smart Max Bid requires Max Buy Now of at least 150');
+    if(!Number.isSafeInteger(ceiling)||ceiling<150||ceiling>15000000)throw Error('Invalid smart Max Bid ladder ceiling');
     const tick=n=>n<1000?50:n<10000?100:n<50000?250:n<100000?500:1000;
-    let price=Math.max(150,maxBuyNow,minBid,maxBid);price=Math.ceil(price/tick(price))*tick(price);
-    if(ceiling<price)throw Error('Ladder ceiling must be at least the starting bid ceiling');
+    const floor=Math.max(maxBuyNow,minBid,maxBid);
+    if(floor===15000000)return {mode,minBid,maxBid:0,step:0,broad:true,cycleLength:1,ceiling};
+    let price=(Math.floor(floor/tick(floor))+1)*tick(floor);
+    if(ceiling<price)throw Error('Smart Max Bid ceiling must cover the first step above Buy Now and your bid limits');
     const segments=[];let count=0;
     for(const [edge,increment] of [[1000,50],[10000,100],[50000,250],[100000,500],[15000001,1000]]){
       if(price>=edge)continue;
@@ -28,8 +43,8 @@
       segments.push({start:price,increment,length});count+=length;price+=length*increment;
       if(price>ceiling)break;
     }
-    const step=index%(count+1);if(step===count)return {minBid,maxBid:0,step,broad:true,cycleLength:count+1,ceiling};
-    let remaining=step;for(const segment of segments){if(remaining<segment.length)return {minBid,maxBid:segment.start+remaining*segment.increment,step,broad:false,cycleLength:count+1,ceiling};remaining-=segment.length;}
+    const step=index%(count+1);if(step===count)return {mode,minBid,maxBid:0,step,broad:true,cycleLength:count+1,ceiling};
+    let remaining=step;for(const segment of segments){if(remaining<segment.length)return {mode,minBid,maxBid:segment.start+remaining*segment.increment,step,broad:false,cycleLength:count+1,ceiling};remaining-=segment.length;}
     throw Error('Invalid bid ladder state');
   }
   function uncertainFailure(reply){const s=Number(reply?.status);return !Number.isFinite(s)||s<400||s>=500||s===408;}

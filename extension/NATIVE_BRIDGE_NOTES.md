@@ -1,3 +1,13 @@
+# v3.18.0 original dashboard with three optional ladders
+
+The release ZIP is built from extension/, retaining the Classic/Cockpit/Aurora dashboard, saved panel arrangements and the digital top-pinned Aurora counter. The uploaded-tool variant remains archived separately. CSS is unchanged by the ladder update.
+
+The original CodexTradeCore.bidLadder now selects Min Bid, regular Max Bid or Smart Max Bid. Smart starts strictly above the effective Buy Now price and higher configured bid constraints, follows EA's price tiers to the configured ceiling, then uses one uncapped-bid query; zero never clears the Buy Now ceiling. Regular ladders disclose their narrower eligibility. The isolated helper entry is regenerated from the same pure source. Missing calculations fail before dispatch instead of substituting a second algorithm.
+
+The UI supplies the calculated min/max bid in its existing prepareSearch plan, while MAIN clones native category/player criteria and validates the plan before each SDK page. No purchase route is imported from the uploaded variant. Existing local cache eviction per page, native item identity, immutable session budget, receipt/isWon confirmation, cancellation and duplicate-purchase rules remain in force. The same Trade IDs may legitimately return after different bid constraints and local cache eviction; this is not a freshness guarantee.
+
+Regressions cover option persistence across language rebuilds and the original themes, migration from the older smart selector, native DTO values/cache clears for every ladder, and confirmed native-item fixture purchases using all three ladder options. Browser tests use manifest-ordered MAIN/ISOLATED worlds with synthetic native transport, not a live account or installed-extension certification.
+
 # v3.10.1 missing isolated helpers and Aurora clock
 
 The uploaded 3.10.0 log has valid extension runtime/version, a successfully prepared SDK price plan and no confirmed market response. It records undefined trade helper and repeated undefined `.get` errors. The earliest matching UI dereference is Modes.get in the dispatch activity log; that can stop both scan and run before Page.request(search). The logs do not establish an EA market rejection or a new provider failure. We do not have a live user DevTools stack proving the underlying browser loading mechanism.

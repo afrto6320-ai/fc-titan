@@ -520,21 +520,21 @@ with sync_playwright() as p:
     assert sh.locator('.selected-card').count()==1
     sh.locator('#maxBuys').fill('1');sh.locator('#maxSearches').fill('1');sh.locator('#budget').fill('10000')
 
-    # Ladder sends six distinct bid constraints while preserving the purchase ceiling and native filters.
+    # Smart ladder sends distinct bid constraints strictly above Buy Now while preserving the purchase ceiling and native filters.
     sh.locator('#searchRoute').select_option('sdk')
-    sh.locator('#autoBuy').uncheck();sh.locator('#maxBin').fill('1500');sh.locator('#bidLadderCeiling').fill('1900');sh.locator('#bidLadder').select_option('max')
+    sh.locator('#autoBuy').uncheck();sh.locator('#maxBin').fill('1500');sh.locator('#bidLadder').select_option('smartMaxBid');sh.locator('#bidLadderCeiling').fill('1900')
     page.evaluate('window.__testItems=[];window.__sdkCalls=[]')
-    for _ in range(6):
+    for _ in range(5):
         sh.locator('#scanMarket').click()
         page.wait_for_function("()=>!document.querySelector('#gpts-v3-host').shadowRoot.querySelector('#resultsCount').disabled")
-    assert page.evaluate('__sdkCalls.map(x=>x.maxBid)')==[1500,1600,1700,1800,1900,0]
-    assert page.evaluate('__sdkCalls.map(x=>x.minBid)')==[0]*6 and page.evaluate('__sdkCalls.every(x=>x.maxBuy===1500)')
+    assert page.evaluate('__sdkCalls.map(x=>x.maxBid)')==[1600,1700,1800,1900,0]
+    assert page.evaluate('__sdkCalls.map(x=>x.minBid)')==[0]*5 and page.evaluate('__sdkCalls.every(x=>x.maxBuy===1500)')
     ladder_logs=sh.locator('#logs .log-row p').all_text_contents()
-    ladder_logs=[x for x in ladder_logs if 'إرسال فحص السوق' in x][:6][::-1]
-    assert len(ladder_logs)==6
-    for index,(entry,value) in enumerate(zip(ladder_logs,[1500,1600,1700,1800,1900,0])):
+    ladder_logs=[x for x in ladder_logs if 'إرسال فحص السوق' in x][:5][::-1]
+    assert len(ladder_logs)==5
+    for index,(entry,value) in enumerate(zip(ladder_logs,[1600,1700,1800,1900,0])):
       maximum=f'{value:,}' if value else 'بدون حد (0)'
-      assert f'خطوة {index+1}/6' in entry and 'Min Bid: 0' in entry and f'Max Bid: {maximum}' in entry and 'Max Buy Now: 1,500' in entry
+      assert f'خطوة {index+1}/5' in entry and 'Min Bid: 0' in entry and f'Max Bid: {maximum}' in entry and 'Max Buy Now: 1,500' in entry
     assert sh.locator('#maxBid').input_value()==''
     sh.locator('#bidLadder').select_option('off');sh.locator('#scanMarket').click()
     page.wait_for_function("()=>!document.querySelector('#gpts-v3-host').shadowRoot.querySelector('#resultsCount').disabled")
@@ -542,10 +542,10 @@ with sync_playwright() as p:
     fixed_log=sh.locator('#logs .log-row p').filter(has_text='إرسال فحص السوق').first.inner_text()
     assert 'السلم متوقف' in fixed_log and 'خطوة' not in fixed_log and 'Max Bid: بدون حد (0)' in fixed_log
     print('PASS: each dispatched scan logs its actual prepared bid/BIN values, 1-based ladder step, uncapped round and fixed mode without a stale step')
-    sh.locator('#bidLadderCeiling').fill('200000');sh.locator('#bidLadder').select_option('max');page.evaluate('window.__sdkCalls=[]')
+    sh.locator('#bidLadder').select_option('smartMaxBid');sh.locator('#bidLadderCeiling').fill('200000');page.evaluate('window.__sdkCalls=[]')
     for _ in range(7):
         sh.locator('#scanMarket').click();page.wait_for_function("()=>!document.querySelector('#gpts-v3-host').shadowRoot.querySelector('#resultsCount').disabled")
-    assert page.evaluate('__sdkCalls.map(x=>x.maxBid)')==[1500,1600,1700,1800,1900,2000,2100]
+    assert page.evaluate('__sdkCalls.map(x=>x.maxBid)')==[1600,1700,1800,1900,2000,2100,2200]
     sh.locator('#bidLadder').select_option('off')
     print('PASS: short and 200k native Max Bid ladders, no premature wrap, fixed Min Bid and Buy Now ceiling, reversible fixed-bid mode')
 
@@ -678,17 +678,33 @@ with sync_playwright() as p:
     print('PASS: original EA view coupling reduces Max Bid 200000 to 6900 at Buy Now 7000; final validation rejects the silent rewrite')
 
     # SDK query clones native category filters and holds independent bid/BIN values while the native screen remains unchanged.
-    sh.locator('#searchRoute').select_option('sdk');sh.locator('#bidLadder').select_option('max');sh.locator('#bidLadderCeiling').fill('200000');sh.locator('#maxBin').fill('7000')
+    sh.locator('#searchRoute').select_option('sdk');sh.locator('#bidLadder').select_option('smartMaxBid');sh.locator('#bidLadderCeiling').fill('200000');sh.locator('#maxBin').fill('7000')
     page.evaluate("window.__testItems=[];window.__testPages=undefined;window.__sdkCalls=[];window.__testDelay=150")
     for _ in range(3):
       sh.locator('#scanMarket').click();page.wait_for_function("()=>!document.querySelector('#gpts-v3-host').shadowRoot.querySelector('#resultsCount').disabled")
-    assert page.evaluate('__sdkCalls.map(x=>x.maxBid)')==[7000,7100,7200]
+    assert page.evaluate('__sdkCalls.map(x=>x.maxBid)')==[7100,7200,7300]
     assert page.evaluate('__sdkCalls.every(x=>x.maxBuy===7000)')
     assert request('readFilters')['result']['prices']['maxBid']==6900
     assert page.evaluate('__nav.currentController instanceof UTMarketSearchFiltersViewController')
     assert 'EA SDK' in sh.locator('#marketResponse').inner_text()
     assert page.evaluate('__sdkMaxInFlight')==1
     print('PASS: SDK route sends increasing Max Bid with fixed Max Buy Now, bypasses view-field coupling, keeps the native screen stable and serializes requests')
+
+    # All three options belong to the original CODEX UI and reach its cloned SDK query.
+    for ladder_mode,field,expected in [('minBid','minBid',[0,150]),('maxBid','maxBid',[0,150])]:
+      sh.locator('#bidLadder').select_option(ladder_mode)
+      assert sh.locator('#bidLadderCeiling').is_disabled()
+      page.evaluate('window.__sdkCalls=[]')
+      before_clears=page.evaluate('__testCacheClears')
+      for _ in range(2):
+        sh.locator('#scanMarket').click();page.wait_for_function("()=>!document.querySelector('#gpts-v3-host').shadowRoot.querySelector('#resultsCount').disabled")
+      assert page.evaluate('__sdkCalls.map(x=>x.'+field+')')==expected
+      assert page.evaluate('__sdkCalls.every(x=>x.maxBuy===7000)')
+      assert page.evaluate('__testCacheClears')==before_clears+2
+      assert request('readFilters')['result']['prices']['maxBid']==6900
+    sh.locator('#bidLadder').select_option('smartMaxBid')
+    assert not sh.locator('#bidLadderCeiling').is_disabled()
+    print('PASS: Min Bid, regular Max Bid and smart Max Bid are distinct choices in the original themed workspace, with local eviction per scan and no native screen-price mutation')
 
     # Real same-auction repeats remain visible and are labelled by Trade ID comparison, not random substitutions.
     page.evaluate("resetTrade('sdk-same-offer')")
@@ -724,7 +740,7 @@ with sync_playwright() as p:
     page.evaluate('window.__testPages=undefined;window.__testDelay=50');sh.locator('#resultsCount').fill('20')
     print('PASS: SDK pagination preserves count/offset, deduplicates sentinels, computes the minimum, and Stop discards partial results')
 
-    sh.locator('#maxBin').fill('1000');sh.locator('#bidLadder').select_option('max');sh.locator('#autoBuy').check();sh.locator('#maxBuys').fill('1');sh.locator('#maxSearches').fill('1')
+    sh.locator('#maxBin').fill('1000');sh.locator('#bidLadder').select_option('smartMaxBid');sh.locator('#autoBuy').check();sh.locator('#maxBuys').fill('1');sh.locator('#maxSearches').fill('1')
     page.evaluate("resetTrade('sdk-gui-buy');window.__bidScenario='won'")
     before=page.evaluate('__bidCalls');sh.locator('#start').click()
     page.wait_for_function("()=>{const s=document.querySelector('#gpts-v3-host').shadowRoot;return s.querySelector('#buyCount').textContent==='1'&&!s.querySelector('#start').disabled;}")
@@ -733,9 +749,19 @@ with sync_playwright() as p:
     assert page.evaluate('__sdkCalls.at(-1).maxBuy')==1000 and page.evaluate('__lastBidPrice')==900
     assert 'EA SDK DIRECT CONNECTED' in sh.locator('#connection').inner_text()
     snipe_log=sh.locator('#logs .log-row p').filter(has_text='إرسال بحث السنايب').first.inner_text()
-    assert 'سلم Max Bid' in snipe_log and 'Min Bid: 0' in snipe_log and 'Max Buy Now: 1,000' in snipe_log
+    assert 'سلم Smart Max Bid' in snipe_log and 'Min Bid: 0' in snipe_log and 'Max Buy Now: 1,000' in snipe_log
     sh.locator('#autoBuy').uncheck()
     print('PASS: full UI Auto Buy uses SDK directly with view linkage active, original native item, actual Buy Now price, confirmed counters and no results-controller navigation')
+
+    for ladder_mode in ['minBid','maxBid']:
+      sh.locator('#bidLadder').select_option(ladder_mode);sh.locator('#autoBuy').check()
+      page.evaluate("resetTrade('codex-ladder-buy-"+ladder_mode+"')")
+      before=page.evaluate('__bidCalls');sh.locator('#start').click()
+      page.wait_for_function("()=>{const s=document.querySelector('#gpts-v3-host').shadowRoot;return s.querySelector('#buyCount').textContent==='1'&&!s.querySelector('#start').disabled;}")
+      assert page.evaluate('__bidCalls')==before+1 and page.evaluate('__lastBidPrice')==900
+      assert page.evaluate('__sdkCalls.at(-1).maxBuy')==1000 and sh.locator('#spent').inner_text()=='900'
+      sh.locator('#autoBuy').uncheck()
+    print('PASS: original CODEX purchase receipts and budget guards also work with the optional Min Bid and regular Max Bid ladders')
 
     # SDK plan integrity and the purchase guard operate on the real native item object without a results-view controller.
     sh.locator('#maxBin').fill('1000');sh.locator('#bidLadder').select_option('off')
@@ -795,7 +821,7 @@ with sync_playwright() as p:
       palettes.append(sh.locator('[data-panel-key="players"]').evaluate('(e)=>getComputedStyle(e).backgroundImage'))
       assert page.evaluate("document.querySelector('#gpts-v3-host').shadowRoot.querySelector('#start')===__themeStartNode") is True
       page.set_viewport_size({'width':1700,'height':1050});sh.locator('#shell').evaluate('(e)=>e.scrollTop=0')
-      page.screenshot(path='/tmp/CODEX_SNIPE_v3.10.1_'+theme+'.png')
+      page.screenshot(path='/tmp/CODEX_SNIPE_v3.18.0_'+theme+'.png')
       if theme!='classic':
         left=sh.locator('.column.control').bounding_box();center=sh.locator('.column.center').bounding_box();right=sh.locator('.column.right').bounding_box()
         assert left['x']<center['x']<right['x']
